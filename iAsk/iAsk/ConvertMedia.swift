@@ -1,0 +1,101 @@
+//
+//  ConvertMedia.swift
+//  iAsk
+//
+//  Created by Sammy Yousif on 8/17/23.
+//
+
+import Foundation
+import FFmpeg_Kit
+import NanoID
+
+enum ConvertError: Error {
+    case invalidURL
+    case conversionFailed(String?)
+}
+
+extension ConvertMediaArgs {
+    struct FFmpegConfig {
+        let command: String
+        let url: URL
+    }
+    
+    var ffmpegConfig: FFmpegConfig? {
+        guard let file = self.file, let url = URL(string: file) else {
+            return nil
+        }
+        let urlWithoutExtension = url.deletingPathExtension()
+        var outputExtension = self.outputExtension
+        
+        if outputExtension == "jpeg" {
+            outputExtension = "jpg"
+        }
+        if outputExtension == nil || outputExtension == url.pathExtension {
+            let id = ID()
+            outputExtension = "\(id.generate()).\(url.pathExtension)"
+        }
+        let inputPath = "\'\(url.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
+        let outputURL = urlWithoutExtension.appendingPathExtension(outputExtension!)
+        let outputPath = "\'\(outputURL.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
+
+        let command = self.command != nil ? " \(self.command!) " : ""
+        
+        let combinedCommand = "-y -i \(inputPath)\(command) \(outputPath)"
+        
+        return FFmpegConfig(command: combinedCommand, url: outputURL)
+    }
+}
+
+func convertFile(config: ConvertMediaArgs.FFmpegConfig?) async throws -> URL {
+    guard let config = config else {
+        throw ConvertError.invalidURL
+    }
+
+    try await ffmpeg(command: config.command)
+    
+    var outputURL = config.url
+    
+    let id = ID()
+    
+    if outputURL.pathExtension == "apng",
+       let url = changeFileExtension(url: outputURL, newExtension: "\(id.generate()).png")
+    {
+        outputURL = url
+    }
+    
+    return outputURL
+}
+
+func makeVideoThumbnail(url: URL, outputURL: URL) async throws -> URL {
+
+    let inputPath = "\'\(url.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
+    let outputPath = "\'\(outputURL.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
+    
+    let command = "-y -i \(inputPath) -vf \'blackdetect=d=0.1:pic_th=0.4:pix_th=0.5\' -frames:v 1 \(outputPath)"
+    
+    try await ffmpeg(command: command)
+    
+    return outputURL
+}
+
+func ffmpeg(command: String) async throws {
+    
+    let session: FFmpegSession = FFmpegKit.execute(command)
+    
+    let returnCode = session.getReturnCode()
+    
+    let logs = session.getAllLogsAsString()
+    
+    if ReturnCode.isSuccess(returnCode) {
+        print("success")
+        return
+    }
+    else if ReturnCode.isCancel(returnCode) {
+        print("cancel")
+    }
+    else {
+        print("fail", FFmpegKitConfig.sessionState(toString: session.getState()))
+    }
+    
+    throw ConvertError.conversionFailed(logs)
+}

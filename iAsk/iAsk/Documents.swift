@@ -338,7 +338,8 @@ func getOpenAIEmbedding(text: String) async throws -> EmbeddingsResult.Embedding
 }
 
 func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> String? {
-    guard let embeddingsPath = Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)") else {
+    guard let embeddingsPath = Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)"), 
+            fileExists(at: embeddingsPath) else {
         return nil
     }
     

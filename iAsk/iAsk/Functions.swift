@@ -48,6 +48,8 @@ enum FunctionCall: String, Codable {
     case summarizeDocuments = "summarize_documents"
     case python = "python"
     case writeFiles = "write_files"
+    case sms = "sms"
+    case call = "call"
 }
 
 struct WriteFilesArgs: Codable {
@@ -58,24 +60,35 @@ struct WriteFilesArgs: Codable {
     let files: [File]?;
 }
 
+
 struct ConvertMediaArgs: Codable {
-    let file: String?;
-    let command: String?;
-    let outputExtension: String?;
+    struct ItemArgs: Codable {
+        let inputFilePath: String?;
+        let command: String?;
+        let outputExtension: String?;
+    }
+    
+    let items: [ItemArgs]
 }
 
 struct SearchArgs: Codable {
     let query: String;
 }
 
+struct SMSArgs: Codable {
+    let contact: String?
+    let message: String?
+    let phoneNumber: String?
+}
+
+struct CallArgs: Codable {
+    let contact: String?
+    let phoneNumber: String?
+}
+
 struct SearchContactsArgs: Codable {
     let name: String;
     let contactType: ContactType
-    
-    enum ContactType: String, Codable {
-        case email = "email"
-        case phone = "phone"
-    }
 }
 
 struct PythonArgs: Codable {
@@ -161,9 +174,10 @@ func getFunctions() -> [ChatFunctionDeclaration] {
             JSONSchema(
               type: .object,
               properties: [
+                "contact": .init(type: .string, description: "The name of the contact the user wishes to contact, ex. Brad"),
                 "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481")
               ],
-              required: ["phoneNumber"]
+              required: []
             )
       ),
       ChatFunctionDeclaration(
@@ -177,7 +191,7 @@ func getFunctions() -> [ChatFunctionDeclaration] {
                 "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481"),
                 "message": .init(type: .string, description: "The message you have generated to send")
               ],
-              required: ["message"]
+              required: []
             )
       ),
       ChatFunctionDeclaration(
@@ -238,11 +252,19 @@ func getFunctions() -> [ChatFunctionDeclaration] {
             JSONSchema(
               type: .object,
               properties: [
-                "file": .init(type: .string, description: "The file path for the input"),
-                "command": .init(type: .string, description: "The ffmpeg arguments used for the conversion apart from the input and output files, e.g. -vf \"scale=iw*10:ih*10:flags=neighbor\""),
-                "outputExtension": .init(type: .string, description: "The output format e.g. mp4 or apng"),
+                "items": .init(
+                    type: .array,
+                    description: "A list of media to convert, ex. {\"inputFilePath\": \"file:///var/pic.png\", \"command\": \"-vf \"scale=iw*10:ih*10:flags=neighbor\"\", \"outputExtension\": \"apng\"}. The command property is optional.",
+                    items: JSONSchema.Items(
+                        type: .object,
+                        properties: [
+                            "inputFilePath": .init(type: .string, description: "The file path for the input file"),
+                            "command": .init(type: .string, description: "The ffmpeg arguments used for the conversion apart from the input and output files, e.g. -vf \"scale=iw*10:ih*10:flags=neighbor\""),
+                            "outputExtension": .init(type: .string, description: "The output format e.g. mp4 or apng"),
+                        ]
+                ))
               ],
-              required: []
+              required: ["items"]
             )
       ),
       ChatFunctionDeclaration(

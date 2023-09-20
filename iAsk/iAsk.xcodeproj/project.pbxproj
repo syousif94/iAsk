@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		53002D3A2AB900CA007AAFF4 /* FuzzyFind in Frameworks */ = {isa = PBXBuildFile; productRef = 53002D392AB900CA007AAFF4 /* FuzzyFind */; };
 		530948CF2A81CC0300EC98F9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530948CE2A81CC0300EC98F9 /* AppDelegate.swift */; };
 		530948D12A81CC0300EC98F9 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530948D02A81CC0300EC98F9 /* SceneDelegate.swift */; };
 		530948D32A81CC0300EC98F9 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530948D22A81CC0300EC98F9 /* ViewController.swift */; };
@@ -130,6 +131,7 @@
 				5384D6372A8DD66A00BA85A1 /* SwiftDate in Frameworks */,
 				5384D62A2A89689C00BA85A1 /* Blackbird in Frameworks */,
 				5384D5F82A81D3A100BA85A1 /* USearch in Frameworks */,
+				53002D3A2AB900CA007AAFF4 /* FuzzyFind in Frameworks */,
 				5384D6472A916C8B00BA85A1 /* AsyncLocationKit in Frameworks */,
 				538106242AA07432007F759E /* FFmpeg in Frameworks */,
 				5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */,
@@ -234,6 +236,7 @@
 				538106252AA07432007F759E /* FFmpeg-Kit */,
 				5381063C2AAFF2B2007F759E /* ZIPFoundation */,
 				5381063F2AB124E8007F759E /* SwiftSoup */,
+				53002D392AB900CA007AAFF4 /* FuzzyFind */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -283,6 +286,7 @@
 				538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */,
 				5381063B2AAFF2B1007F759E /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 				5381063E2AB124E8007F759E /* XCRemoteSwiftPackageReference "SwiftSoup" */,
+				53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -567,6 +571,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/truizlop/FuzzyFind";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
 		538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tylerjonesio/ffmpeg-kit-spm.git";
@@ -722,6 +734,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		53002D392AB900CA007AAFF4 /* FuzzyFind */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */;
+			productName = FuzzyFind;
+		};
 		538106232AA07432007F759E /* FFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */;

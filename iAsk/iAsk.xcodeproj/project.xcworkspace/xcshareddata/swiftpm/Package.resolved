@@ -46,6 +46,15 @@
       }
     },
     {
+      "identity" : "fuzzyfind",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/truizlop/FuzzyFind",
+      "state" : {
+        "revision" : "8c4a858ddbe23f91ffca595ba7892ded56a420e8",
+        "version" : "0.1.0"
+      }
+    },
+    {
       "identity" : "googlesignin-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/GoogleSignIn-iOS",

@@ -14,22 +14,30 @@ enum ConvertError: Error {
     case conversionFailed(String?)
 }
 
-extension ConvertMediaArgs {
+extension ConvertMediaArgs.ItemArgs {
     struct FFmpegConfig {
         let command: String
         let url: URL
     }
     
     var ffmpegConfig: FFmpegConfig? {
-        guard let file = self.file, let url = URL(string: file) else {
+        guard let file = self.inputFilePath, let url = URL(string: file) else {
             return nil
         }
         let urlWithoutExtension = url.deletingPathExtension()
         var outputExtension = self.outputExtension
         
+        outputExtension = outputExtension?.replacingOccurrences(of: ".", with: "")
+        
         if outputExtension == "jpeg" {
             outputExtension = "jpg"
         }
+        
+        let isMp3 = outputExtension == "mp3"
+        if isMp3 {
+            outputExtension = "m4a"
+        }
+        
         if outputExtension == nil || outputExtension == url.pathExtension {
             let id = ID()
             outputExtension = "\(id.generate()).\(url.pathExtension)"
@@ -38,7 +46,21 @@ extension ConvertMediaArgs {
         let outputURL = urlWithoutExtension.appendingPathExtension(outputExtension!)
         let outputPath = "\'\(outputURL.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
 
-        let command = self.command != nil ? " \(self.command!) " : ""
+        var command = self.command != nil ? " \(self.command!) " : ""
+        
+        let hasInput = command.contains(" -i ")
+        
+        if hasInput {
+            var args = command.components(separatedBy: " -")
+            args = args.filter { text in
+                return !text.starts(with: "i ")
+            }
+            command = "-\(args.joined(separator: " -"))"
+        }
+        
+        let commandComponents = command.components(separatedBy: "file://")
+        
+        command = commandComponents.first ?? command
         
         let combinedCommand = "-y -i \(inputPath)\(command) \(outputPath)"
         
@@ -46,7 +68,7 @@ extension ConvertMediaArgs {
     }
 }
 
-func convertFile(config: ConvertMediaArgs.FFmpegConfig?) async throws -> URL {
+func convertFile(config: ConvertMediaArgs.ItemArgs.FFmpegConfig?) async throws -> URL {
     guard let config = config else {
         throw ConvertError.invalidURL
     }
@@ -98,4 +120,25 @@ func ffmpeg(command: String) async throws {
     }
     
     throw ConvertError.conversionFailed(logs)
+}
+
+func printEncoders() {
+    let session: FFmpegSession = FFmpegKit.execute("-encoders")
+    
+    let returnCode = session.getReturnCode()
+    
+    let logs = session.getAllLogsAsString()
+    
+    print(logs)
+    
+    if ReturnCode.isSuccess(returnCode) {
+        print("success")
+        return
+    }
+    else if ReturnCode.isCancel(returnCode) {
+        print("cancel")
+    }
+    else {
+        print("fail", FFmpegKitConfig.sessionState(toString: session.getState()))
+    }
 }

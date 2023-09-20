@@ -409,7 +409,9 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    func callChat(at message: Message? = nil) async {
+    // MARK: Call LLM
+    
+    func callChat(at lastUserMessage: Message? = nil) async {
         let lastEdited = lastEdited
 
         if let lastEdited = lastEdited {
@@ -424,7 +426,7 @@ class ChatViewModel: ObservableObject {
         
         let aiMessage: Message
         
-        if let message = message {
+        if let message = lastUserMessage {
             let messageIndex = messages.firstIndex { $0.record.id == message.record.id }
             let nextIndex = messageIndex! + 1
             
@@ -483,9 +485,9 @@ class ChatViewModel: ObservableObject {
                     var val = ""
                     
                     for attachment in attachments {
-                        if let url = attachment.url {
-                            group.addTask {
-                                let text = await searchIndex(url: url, queryEmbedding: questionEmbedding)
+                            if let url = attachment.url {
+                                group.addTask {
+                                    let text = await searchIndex(url: url, queryEmbedding: questionEmbedding)
                                 return text
                             }
                         }
@@ -531,11 +533,18 @@ class ChatViewModel: ObservableObject {
                     }
                 }
                 else if let functionCall = result.choices[0].delta.functionCall {
+                    
                     if let name = functionCall.name {
                         call.name += name
                     }
                     if let arguments = functionCall.arguments {
                         call.arguments += arguments
+                        
+                        if call.nameCompleted {
+                            DispatchQueue.main.async {
+                                aiMessage.content += arguments
+                            }
+                        }
                         
                         if !call.nameCompleted, let function = FunctionCall(rawValue: call.name) {
                             call.nameCompleted = true
@@ -556,16 +565,19 @@ class ChatViewModel: ObservableObject {
                                 DispatchQueue.main.async {
                                     aiMessage.content = "Generating Python Script"
                                 }
-                            case .searchDocuments:
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Searching Docs"
-                                }
                             case .summarizeDocuments:
                                 DispatchQueue.main.async {
                                     aiMessage.content = "Summarizing"
                                 }
                             default:
                                 break
+                            }
+                            DispatchQueue.main.async {
+                                aiMessage.content += """
+                                
+                                ```json
+                                
+                                """
                             }
                         }
                     }
@@ -578,6 +590,14 @@ class ChatViewModel: ObservableObject {
                 
                 aiMessage.record.functionCallName = call.name
                 aiMessage.record.functionCallArgs = call.arguments
+                
+                DispatchQueue.main.async {
+                    aiMessage.content += """
+                    
+                    ```
+                    
+                    """
+                }
 
                 switch function {
                 case .getUserLocation:
@@ -606,7 +626,7 @@ class ChatViewModel: ObservableObject {
                             let functionMessage = Message(record: functionMessageRecord)
                             aiMessage.content = "Location: \(cityAndState)"
                             self.messages.append(functionMessage)
-                            self.endGenerating(lastEdited: lastEdited, message: message)
+                            self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                             Task {
                                 async let saveAiMessage = aiMessage.save()
                                 
@@ -626,30 +646,42 @@ class ChatViewModel: ObservableObject {
                     do {
                         let args = try call.toArgs(ConvertMediaArgs.self)
                         Task { [call] in
+                            
                             do {
-                                let config = args.ffmpegConfig
-                                if let config = config {
+                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .data, functionCallName: call.name)
+                                
+                                let functionMessage = Message(record: functionMessageRecord)
+                                
+                                DispatchQueue.main.async {
+                                    self.messages.append(functionMessage)
+                                }
+                                
+                                for args in args.items {
+                                    let config = args.ffmpegConfig
+                                    if let config = config {
+                                        DispatchQueue.main.async {
+                                            aiMessage.content += """
+                                            
+                                            ```
+                                            ffmpeg \(config.command)
+                                            ```
+                                            
+                                            """
+                                        }
+                                    }
+                                    let outputURL = try await convertFile(config: config)
+                                    let _ = await functionMessage.attach(url: outputURL, dataType: getDataType(url: outputURL))
                                     DispatchQueue.main.async {
-                                        aiMessage.content += """
-                                        
-                                        ```
-                                        ffmpeg \(config.command)
-                                        ```
-                                        
-                                        """
+                                        functionMessage.content += "\(outputURL.absoluteString)\n"
                                     }
                                 }
-                                let outputURL = try await convertFile(config: config)
                                 
-                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: outputURL.absoluteString, role: .function, messageType: .data, functionCallName: call.name)
-                                let functionMessage = Message(record: functionMessageRecord)
-                                let _ = await functionMessage.attach(url: outputURL, dataType: getDataType(url: outputURL))
                                 DispatchQueue.main.async {
                                     aiMessage.content += """
                                     Conversion Complete
                                     """
-                                    self.messages.append(functionMessage)
-                                    self.endGenerating(lastEdited: lastEdited, message: message)
+//                                    self.messages.append(functionMessage)
+                                    self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                                     Task {
                                         async let saveAiMessage = aiMessage.save()
                                         async let saveFunctionMessage = functionMessage.save()
@@ -676,15 +708,15 @@ class ChatViewModel: ObservableObject {
                                     errorMessage = "Something weird happened"
                                 }
                                 DispatchQueue.main.async {
-                                    aiMessage.content = errorMessage
-                                    self.endGenerating(lastEdited: lastEdited, message: message)
+                                    aiMessage.content += errorMessage
+                                    self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                                 }
                             }
                             
                         }
                     } catch {
                         print("Failed to decode JSON: \(error)")
-                        self.endGenerating(lastEdited: lastEdited, message: message)
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                     }
                 case .search:
                     do {
@@ -692,7 +724,7 @@ class ChatViewModel: ObservableObject {
                         print(args)
                         DispatchQueue.main.async {
                             aiMessage.content = "Searching: \(args.query)"
-                            self.endGenerating(lastEdited: lastEdited, message: message)
+                            self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                             Task {
                                 await aiMessage.save()
                             }
@@ -700,7 +732,7 @@ class ChatViewModel: ObservableObject {
                         
                     } catch {
                         print("Failed to decode JSON: \(error)")
-                        self.endGenerating(lastEdited: lastEdited, message: message)
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                     }
                 case .searchContacts:
                     do {
@@ -708,7 +740,7 @@ class ChatViewModel: ObservableObject {
                         print(args)
                         DispatchQueue.main.async {
                             aiMessage.content = "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
-                            self.endGenerating(lastEdited: lastEdited, message: message)
+                            self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                             Task {
                                 await aiMessage.save()
                             }
@@ -767,7 +799,7 @@ class ChatViewModel: ObservableObject {
                                     
                                 }
                             }
-                            self.endGenerating(lastEdited: lastEdited, message: message)
+                            self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                             async let saveAiMessage = aiMessage.save()
                             await saveAiMessage
                             
@@ -783,13 +815,29 @@ class ChatViewModel: ObservableObject {
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")
-                        self.endGenerating(lastEdited: lastEdited, message: message)
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
+                    }
+                case .sms:
+                    do {
+                        let args = try call.toArgs(SMSArgs.self)
+                    }
+                    catch {
+                        print("Failed to decode JSON: \(error)")
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
+                    }
+                case .call:
+                    do {
+                        let args = try call.toArgs(CallArgs.self)
+                    }
+                    catch {
+                        print("Failed to decode JSON: \(error)")
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                     }
                 }
                 
             }
             else {
-                self.endGenerating(lastEdited: lastEdited, message: message)
+                self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
                 Task {
                     await aiMessage.save()
                 }

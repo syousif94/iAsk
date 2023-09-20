@@ -107,6 +107,8 @@ class ViewController: UIViewController {
         view.addInteraction(dropInteraction)
         
         updateColors()
+        
+        printEncoders()
     }
     
     func setupShowCameraListener() {

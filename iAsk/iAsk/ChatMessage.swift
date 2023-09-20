@@ -192,6 +192,8 @@ class Attachment: ObservableObject {
         return URL(string: dataRecord.path)
     }
     
+    
+    
     init(url: URL, message: Message, dataType: DataType) {
         let now = Date()
         let dataRecord = DataRecord(path: url.absoluteString, name: url.lastPathComponent, dataType: dataType, createdAt: now)

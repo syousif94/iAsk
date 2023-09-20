@@ -534,10 +534,11 @@ struct UserMessageView: View {
 struct PreviewImage: View {
     let message: Message
     @Binding var attachment: Attachment
-    @State var loading = false
+    @State var generating = false
+    @State var indexing = false
 
     var body: some View {
-        Group {
+        ZStack {
             if let image = attachment.previewImage {
                 Image(uiImage: image)
                     .resizable()
@@ -545,15 +546,17 @@ struct PreviewImage: View {
                     .frame(width: 60, height: 60)
                     .clipped()
             }
-            else if loading {
+            if generating || indexing {
                 ProgressView()
                     .frame(width: 60, height: 60)
             }
         }
         .onReceive(attachment.$generatingPreview) { newValue in
-            self.loading = newValue
+            self.generating = newValue
         }
-        
+        .onReceive(attachment.$indexing) { newValue in
+            self.indexing = newValue
+        }
     }
 }
 

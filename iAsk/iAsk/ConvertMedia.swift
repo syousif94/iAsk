@@ -62,6 +62,8 @@ extension ConvertMediaArgs.ItemArgs {
         
         command = commandComponents.first ?? command
         
+        command = command.replacingOccurrences(of: "\"", with: "'")
+        
         let combinedCommand = "-y -i \(inputPath)\(command) \(outputPath)"
         
         return FFmpegConfig(command: combinedCommand, url: outputURL)

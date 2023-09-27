@@ -48,6 +48,7 @@ enum FunctionCall: String, Codable {
     case summarizeDocuments = "summarize_documents"
     case python = "python"
     case writeFiles = "write_files"
+    case readFiles = "read_files"
     case sms = "sms"
     case call = "call"
 }
@@ -58,6 +59,10 @@ struct WriteFilesArgs: Codable {
         let content: String
     }
     let files: [File]?;
+}
+
+struct ReadFilesArgs: Codable {
+    let files: [String];
 }
 
 
@@ -297,6 +302,22 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               ],
               required: ["files"]
             )
+      ),
+      ChatFunctionDeclaration(
+          name: "read_files",
+          description: "Read files using their path",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "files": .init(
+                    type: .array,
+                    items: JSONSchema.Items(
+                        type: .string
+                ))
+              ],
+              required: ["files"]
+            )
       )
     ]
     return functions
@@ -317,4 +338,85 @@ struct FunctionCallParams: Codable {
             return nil
         }
     }
+}
+
+struct DetermineArgs: Codable {
+    let isTrue: Bool
+}
+
+func determine(_ messages: [Chat]) async -> Bool {
+    
+    let functions = [
+      ChatFunctionDeclaration(
+          name: "determine",
+          description: "Determine whether the answer is true or false",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "isTrue": .init(type: .boolean, description: "Whether the answer to the question is true or false")
+              ],
+              required: ["isTrue"]
+            )
+      )
+    ]
+    
+    let openAI = OpenAI(apiToken: OPEN_AI_KEY)
+    
+    let query = ChatQuery(model: .gpt3_5Turbo, messages: messages, functions: functions, functionCall: .function("determine"))
+    
+    if let result = try? await openAI.chats(query: query), let functionCall = result.choices[0].message.functionCall {
+    
+        let call = FunctionCallResponse()
+        
+        call.name = functionCall.name ?? ""
+        
+        call.arguments = functionCall.arguments ?? ""
+        
+        if let args = try? call.toArgs(DetermineArgs.self) {
+            return args.isTrue
+        }
+    }
+    
+    return false
+}
+
+struct TermsArgs: Codable {
+    let terms: [String]
+}
+
+func extractTerms(_ messages: [Chat]) async -> [String] {
+    let functions = [
+      ChatFunctionDeclaration(
+          name: "extract_terms",
+          description: "Extract relevant terms from the input text",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "terms": .init(type: .string, description: "Terms extracted from the text")
+              ],
+              required: ["terms"]
+            )
+      )
+    ]
+    
+    let openAI = OpenAI(apiToken: OPEN_AI_KEY)
+    
+    let query = ChatQuery(model: .gpt3_5Turbo, messages: messages, functions: functions, functionCall: .function("extract_terms"))
+    
+    if let result = try? await openAI.chats(query: query), let functionCall = result.choices[0].message.functionCall {
+    
+        let call = FunctionCallResponse()
+        
+        call.name = functionCall.name ?? ""
+        
+        call.arguments = functionCall.arguments ?? ""
+        
+        if let args = try? call.toArgs(TermsArgs.self) {
+            return args.terms
+        }
+    }
+    
+    return []
 }

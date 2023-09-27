@@ -198,7 +198,7 @@ extension Browser: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         
         if let handler = self.snapshotHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 let configuration = WKSnapshotConfiguration()
                 configuration.rect = CGRect(origin: .zero, size: webView.scrollView.contentSize)
                 
@@ -212,7 +212,7 @@ extension Browser: WKNavigationDelegate {
             }
         }
         else if let handler = self.completionHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 webView.evaluateJavaScript("document.documentElement.outerHTML.toString()",
                                            completionHandler: { (html: Any?, error: Error?) in
                     if let htmlString = html as? String {
@@ -304,10 +304,10 @@ class BrowserButton: UIButton {
 
         updateColors()
         
-        let cancelAction = UIAction(title: "Cancel", attributes: .destructive, handler: { _ in
-                // handle cancel action
-                print("Cancel tapped")
-            })
+//        let cancelAction = UIAction(title: "Cancel", attributes: .destructive, handler: { _ in
+//                // handle cancel action
+//                print("Cancel tapped")
+//            })
         
         let chatAction = UIAction(title: "Back to Chat", image: UIImage(systemName: "message"), handler: { _ in
             // handle chat action
@@ -335,7 +335,7 @@ class BrowserButton: UIButton {
             print("Crawl Site tapped")
         })
         
-        var elements: [UIMenuElement] = [cancelAction, crawlSiteAction, indexPageAction, refreshAction, chatAction]
+        var elements: [UIMenuElement] = [crawlSiteAction, indexPageAction, refreshAction, chatAction]
         
         #if targetEnvironment(macCatalyst)
         elements.remove(at: 0)

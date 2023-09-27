@@ -124,7 +124,7 @@ struct ChatView: View {
                                     menuShown = false
                                     return
                                 }
-                                else if isFocused {
+                                else if !Application.isCatalyst, isFocused {
                                     UIApplication.shared.endEditing()
                                 }
                                 else {
@@ -161,6 +161,7 @@ struct ChatView: View {
                         }
                         
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .onAppear {
                         chat.scrollProxy = scrollProxy
                     }
@@ -201,7 +202,7 @@ struct ChatView: View {
                     HStack {
                         Spacer()
                         Menu() {
-                            Button("New Chat", action: {
+                            Button(action: {
                                 menuShown = false
                                 Task {
                                     await chat.resetChat()
@@ -210,9 +211,11 @@ struct ChatView: View {
                                     }
                                     
                                 }
-                                
-                            })
-                            Button("Share", action: {
+                            }) {
+                                Label("New Chat", systemImage: "plus.bubble")
+                            }
+                            
+                            Button(action: {
                                 if Application.isCatalyst {
                                     chat.saveDialog()
                                 }
@@ -220,39 +223,58 @@ struct ChatView: View {
                                     chat.shareDialog()
                                 }
                                 menuShown = false
-                            })
-                            
-                            Divider()
-                            
-                            Button("Camera", action: {
-                                showCameraNotification.send(true)
-                                menuShown = false
-                            })
-                            
-                            Button("Documents") {
-                                showDocumentsNotification.send(true)
-                                menuShown = false
+                            }) {
+                                Label("Share", systemImage: "square.and.arrow.up")
                             }
                             
-                            Button("Photos", action: {
-                                
+                            Divider()
+                            
+                            Button(action: {
+                                showCameraNotification.send(true)
+                                menuShown = false
+                            }) {
+                                Label("Camera", systemImage: "camera")
+                            }
+                            
+                            Button(action: {
+                                showDocumentsNotification.send(true)
+                                menuShown = false
+                            }) {
+                                Label("Documents", systemImage: "doc.on.doc")
+                            }
+                            
+                            Button(action: {
                                 showPhotoPickerNotification.send(true)
                                 menuShown = false
-                            })
+                            }) {
+                                Label("Photos", systemImage: "photo.on.rectangle.angled")
+                            }
                             
-                            Button("Browser", action: {
+                            Button(action: {
                                 showWebNotification.send(true)
                                 menuShown = false
-                            })
+                            }) {
+                                Label("Browser", systemImage: "safari")
+                            }
                             
-                            Button("Google Account", action: {
-                                startGoogleSignInNotification.send(())
-                                menuShown = false
-                            })
+//                            Button(action: {
+//                                startGoogleSignInNotification.send(())
+//                                menuShown = false
+//                            }) {
+//                                Label("Google Account", systemImage: "person.crop.circle")
+//                            }
                             
                             Divider()
                             
-                            Toggle("Use GPT4", isOn: $chat.proMode)
+                            Toggle(isOn: $chat.proMode) {
+                                Label("Use GPT4", systemImage: "brain.head.profile")
+                            }
+                            
+                            Button(action: {
+
+                            }) {
+                                Label("Settings", systemImage: "gearshape")
+                            }
                             
                         } label: {
                             Image(systemName: "plus")
@@ -284,27 +306,7 @@ struct ChatView: View {
                 
                 VStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            UIApplication.shared.endEditing()
-                        }) {
-                            Text("Cancel")
-                                .foregroundColor(Color.blue)
-                                .padding()
-                        }
-                        .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
-                        
-                        Button(action: {
-                            UIApplication.shared.endEditing()
-                            chat.send()
-                        }) {
-                            Image(systemName: "paperplane.fill")
-                                            .font(.system(size: 24))
-                                            .padding()
-                        }
-                        .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
-                    }
+                    InputBar()
                 }
                 .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - geometry.safeAreaInsets.bottom : 0)
                 .onAppear {
@@ -320,6 +322,79 @@ struct ChatView: View {
             )
             
         }
+    }
+}
+
+struct InputBar: View {
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    @StateObject var keyboardObserver = KeyboardObserver()
+    
+    @EnvironmentObject var chat: ChatViewModel
+    
+    var bg: SwiftUI.Color {
+        return colorScheme == .dark ?
+              Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
+              Color(red: 0, green: 0, blue: 0, opacity: 0.05)
+    }
+    
+    var body: some View {
+        HStack {
+            Button(action: {
+                UIApplication.shared.endEditing()
+                chat.send()
+            }) {
+                Image(systemName: "plus")
+                                .font(.system(size: 24))
+                                .padding()
+            }
+            .background {
+                Circle()
+                    .fill(bg)
+                    .padding(4)
+            }
+            .padding(4)
+            .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
+            
+            
+            Button(action: {
+                UIApplication.shared.endEditing()
+                chat.send()
+            }) {
+                Image(systemName: "mic.fill")
+                                .font(.system(size: 24))
+                                .padding()
+            }
+            .background {
+                Circle()
+                    .fill(bg)
+                    .padding(4)
+            }
+            .padding(4)
+            .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
+            
+            Spacer()
+            
+            Button(action: {
+                UIApplication.shared.endEditing()
+                chat.send()
+            }) {
+                Image(systemName: "play.fill")
+                                .font(.system(size: 24))
+                                .padding()
+            }
+            .background {
+                Circle()
+                    .fill(bg)
+                    .padding(4)
+            }
+            .padding(4)
+            .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
+            
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
     }
 }
 
@@ -515,7 +590,7 @@ struct DataMessageView: View {
 
     var body: some View {
         WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
-            AttachmentView(message: message, attachment: attachment) { }
+            AttachmentView(message: message, attachment: attachment)
         }
         .frame(maxHeight: .infinity)
     }
@@ -535,7 +610,6 @@ struct PreviewImage: View {
     let message: Message
     @Binding var attachment: Attachment
     @State var generating = false
-    @State var indexing = false
 
     var body: some View {
         ZStack {
@@ -546,7 +620,7 @@ struct PreviewImage: View {
                     .frame(width: 60, height: 60)
                     .clipped()
             }
-            if generating || indexing {
+            if generating {
                 ProgressView()
                     .frame(width: 60, height: 60)
             }
@@ -554,29 +628,41 @@ struct PreviewImage: View {
         .onReceive(attachment.$generatingPreview) { newValue in
             self.generating = newValue
         }
-        .onReceive(attachment.$indexing) { newValue in
-            self.indexing = newValue
-        }
     }
 }
 
-struct AttachmentView<Content: View>: View {
+struct AttachmentView: View {
     let message: Message
     @Binding var attachment: Attachment
-    let content: Content
+    @State var status = ""
 
-    init(message: Message, attachment: Binding<Attachment>, @ViewBuilder builder: () -> Content) {
+    init(message: Message, attachment: Binding<Attachment>) {
         self.message = message
         self._attachment = attachment
-        self.content = builder()
     }
     
     var innerBody: some View {
         HStack(spacing: 0) {
             PreviewImage(message: message, attachment: $attachment)
-            Text(attachment.dataRecord.name)
-                .padding()
-                .frame(minHeight: 60)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(attachment.dataRecord.name)
+                    
+                if !status.isEmpty {
+                    Text(status)
+                        .font(
+                            .caption
+                        )
+                        .fontWeight(.bold)
+                        .foregroundStyle(.gray)
+                        .padding(.top, 2)
+                }
+                
+            }
+            .frame(minHeight: 60)
+            .padding(.horizontal)
+            .onReceive(attachment.$status) { newValue in
+                self.status = newValue
+            }
         }
         .clipped()
         .background(Color(hex: "#000000", alpha: 0.1))

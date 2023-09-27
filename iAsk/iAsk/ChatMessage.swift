@@ -28,9 +28,9 @@ class Message: ObservableObject {
     var ai: Chat {
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { attachment in
-                if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
-                    return "file_path: \(path.absoluteString)"
-                }
+//                if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
+//                    return "file_path: \(path.absoluteString)"
+//                }
                 return "file_path: \(attachment.dataRecord.path)"
             }.joined(separator: "\n")
             if record.role == .function {
@@ -100,17 +100,19 @@ class Message: ObservableObject {
         }
     }
     
-    func attach(url: URL, dataType: DataType) async -> Attachment {
-        let attachment = Attachment(url: url, message: self, dataType: dataType)
+    func attach(url: URL) async -> Attachment {
+        let attachment = Attachment(url: url, message: self)
+        
         await withCheckedContinuation { continuation in
+            let hasItem = self.attachments.contains(where: { existing in
+                existing.dataRecord.path == attachment.dataRecord.path
+            })
+            if hasItem {
+                continuation.resume()
+                return
+            }
+            
             DispatchQueue.main.async {
-                let hasItem = self.attachments.contains(where: { existing in
-                    existing.dataRecord.path == attachment.dataRecord.path
-                })
-                if hasItem {
-                    continuation.resume()
-                    return
-                }
                 self.attachments.append(attachment)
                 continuation.resume()
             }
@@ -167,6 +169,7 @@ extension UIImage {
 class Attachment: ObservableObject {
     @Published var generatingPreview = false
     @Published var indexing = false
+    @Published var status = ""
     
     let attachmentRecord: AttachmentRecord
     let dataRecord: DataRecord
@@ -181,7 +184,10 @@ class Attachment: ObservableObject {
     }
     
     var hasText: Bool {
-        return url?.dataType == .doc
+        guard let dataType = url?.dataType else {
+            return false
+        }
+        return dataType == .doc || dataType == .photo
     }
     
     var previewImage: UIImage? {
@@ -192,15 +198,60 @@ class Attachment: ObservableObject {
         return URL(string: dataRecord.path)
     }
     
+    func index() async {
+        guard let url = url else {
+            return
+        }
+        
+        DispatchQueue.main.async {
+            self.indexing = true
+        }
+        
+        let importFileType = dataRecord.dataType
+        
+        if importFileType == .doc || importFileType == .photo {
+            
+            DispatchQueue.main.async {
+                self.status = "Indexing"
+            }
+            
+            try? await indexText(attachment: self)
+        }
+        else if importFileType == .url {
+            DispatchQueue.main.async {
+                self.status = "Downloading"
+            }
+            
+            try? await download(url: url)
+            
+            DispatchQueue.main.async {
+                self.status = "Indexing"
+            }
+            
+            if hasText {
+                try? await indexText(attachment: self)
+            }
+        }
+        
+        DispatchQueue.main.async {
+            self.indexing = false
+            self.status = ""
+        }
+    }
     
-    
-    init(url: URL, message: Message, dataType: DataType) {
+    init(url: URL, message: Message) {
         let now = Date()
-        let dataRecord = DataRecord(path: url.absoluteString, name: url.lastPathComponent, dataType: dataType, createdAt: now)
+        let dataRecord = DataRecord(path: url.absoluteString, name: url.lastPathComponent, dataType: getDataType(url: url), createdAt: now)
         let attachmentRecord = AttachmentRecord(msgId: message.record.id, dataId: dataRecord.path, chatId: message.record.chatId, createdAt: now)
         
         self.dataRecord = dataRecord
         self.attachmentRecord = attachmentRecord
+        
+        Task {
+            print("starting attachment indexing", url)
+            await index()
+            print("finished indexing", url)
+        }
     }
     
     init(attachmentRecord: AttachmentRecord, dataRecord: DataRecord) {

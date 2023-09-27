@@ -85,6 +85,12 @@ class ChatViewModel: ObservableObject {
     // messages are sent
     private var chatCreated = false
     
+    /// generate the the latest chat messages in ai format once per chat call
+    var latestAiMessages: [Chat] = []
+    
+    /// generate the the latest attachments list once per chat call
+    var latestAttachments: [Attachment] = []
+    
     func resetChat(_ chatId: String? = nil) async {
         
         if let chatId = chatId {
@@ -239,19 +245,9 @@ class ChatViewModel: ObservableObject {
         }
         
         for url in urls {
-            let importFileType = getDataType(url: url)
-            let attachment = await message.attach(url: url, dataType: importFileType)
-            Task {
-                if importFileType == .doc {
-                    try? await indexText(attachment: attachment)
-                }
-                if importFileType == .url {
-                    try? await download(url: url)
-//                    if url.dataType == .doc {
-//                        try? await indexText(attachment: attachment)
-//                    }
-                }
-            }
+            
+            let attachment = await message.attach(url: url)
+            
         }
         
         await message.save()
@@ -474,45 +470,23 @@ class ChatViewModel: ObservableObject {
             }
         }
         
-        let attachments = messages.reversed().flatMap { $0.attachments }.filter { attachment in
+        self.latestAiMessages = chatMessages
+        
+        self.latestAttachments = messages.reversed().flatMap { $0.attachments }.filter { attachment in
             return attachment.hasText
         }
         
-        if !attachments.isEmpty {
-            if let content = chatMessages.last?.content, let questionEmbedding = try? await getOpenAIEmbedding(text: content) {
-                
-                let researchText = try? await withThrowingTaskGroup(of: String?.self) { group -> String in
-                    var val = ""
-                    
-                    for attachment in attachments {
-                            if let url = attachment.url {
-                                group.addTask {
-                                    let text = await searchIndex(url: url, queryEmbedding: questionEmbedding)
-                                return text
-                            }
-                        }
-                    }
-                    
-                    for try await text in group {
-                        if let text = text {
-                            val += text
-                        }
-                    }
-
-                    return val
-                }
-                
-                if let text = researchText {
-                    print(text)
-                    chatMessages[0] = .init(role: .system, content: """
-                        You are an AI personal assistant that obeys the following rules: 1. Put all code for a single file in a single code block. 2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites. 3. Don’t make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous. 4. Search for links online if the user asks specifically for links or urls
-                        
-                        The following information has been retrieved from files related to the chat:
-                        
-                        \(text)
-                        """)
-                }
-            }
+        if let text = await getTextForChat(chatModel: self), !text.isEmpty, let message = chatMessages.last?.content {
+            let lastIndex = chatMessages.count - 1
+            chatMessages[lastIndex] = .init(role: .user, content: """
+            Use the following context to complete this request: \(message)
+            
+            <CONTEXT>
+            \(text)
+            
+            """)
+            
+            print(chatMessages[lastIndex])
         }
         
         let functions = getFunctions()
@@ -541,9 +515,9 @@ class ChatViewModel: ObservableObject {
                         call.arguments += arguments
                         
                         if call.nameCompleted {
-                            DispatchQueue.main.async {
-                                aiMessage.content += arguments
-                            }
+//                            DispatchQueue.main.async {
+//                                aiMessage.content += arguments
+//                            }
                         }
                         
                         if !call.nameCompleted, let function = FunctionCall(rawValue: call.name) {
@@ -572,13 +546,13 @@ class ChatViewModel: ObservableObject {
                             default:
                                 break
                             }
-                            DispatchQueue.main.async {
-                                aiMessage.content += """
-                                
-                                ```json
-                                
-                                """
-                            }
+//                            DispatchQueue.main.async {
+//                                aiMessage.content += """
+//                                
+//                                ```json
+//                                
+//                                """
+//                            }
                         }
                     }
                 }
@@ -591,13 +565,13 @@ class ChatViewModel: ObservableObject {
                 aiMessage.record.functionCallName = call.name
                 aiMessage.record.functionCallArgs = call.arguments
                 
-                DispatchQueue.main.async {
-                    aiMessage.content += """
-                    
-                    ```
-                    
-                    """
-                }
+//                DispatchQueue.main.async {
+//                    aiMessage.content += """
+//                    
+//                    ```
+//                    
+//                    """
+//                }
 
                 switch function {
                 case .getUserLocation:
@@ -647,15 +621,15 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(ConvertMediaArgs.self)
                         Task { [call] in
                             
-                            do {
-                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .data, functionCallName: call.name)
-                                
-                                let functionMessage = Message(record: functionMessageRecord)
-                                
-                                DispatchQueue.main.async {
-                                    self.messages.append(functionMessage)
-                                }
-                                
+                            let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .data, functionCallName: call.name)
+                            
+                            let functionMessage = Message(record: functionMessageRecord)
+                            
+                            DispatchQueue.main.async {
+                                self.messages.append(functionMessage)
+                            }
+                            
+                            await withThrowingTaskGroup(of: Void.self) { group in
                                 for args in args.items {
                                     let config = args.ffmpegConfig
                                     if let config = config {
@@ -669,49 +643,31 @@ class ChatViewModel: ObservableObject {
                                             """
                                         }
                                     }
-                                    let outputURL = try await convertFile(config: config)
-                                    let _ = await functionMessage.attach(url: outputURL, dataType: getDataType(url: outputURL))
-                                    DispatchQueue.main.async {
-                                        functionMessage.content += "\(outputURL.absoluteString)\n"
+                                    group.addTask {
+                                        let outputURL = try await convertFile(config: config)
+                                        let _ = await functionMessage.attach(url: outputURL)
+                                        DispatchQueue.main.async {
+                                            functionMessage.content += "\(outputURL.absoluteString)\n"
+                                        }
                                     }
+                                    
                                 }
+                            }
                                 
-                                DispatchQueue.main.async {
-                                    aiMessage.content += """
-                                    Conversion Complete
-                                    """
+                            DispatchQueue.main.async {
+                                aiMessage.content += """
+                                Conversion Complete
+                                """
 //                                    self.messages.append(functionMessage)
-                                    self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
-                                    Task {
-                                        async let saveAiMessage = aiMessage.save()
-                                        async let saveFunctionMessage = functionMessage.save()
-                                        await saveAiMessage
-                                        await saveFunctionMessage
-                                    }
+                                self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
+                                Task {
+                                    async let saveAiMessage = aiMessage.save()
+                                    async let saveFunctionMessage = functionMessage.save()
+                                    await saveAiMessage
+                                    await saveFunctionMessage
                                 }
                             }
-                            catch {
-                                let errorMessage: String
-                                switch error {
-                                case ConvertError.conversionFailed(let logs):
-                                    if let logs = logs, let reason = logs.split(separator: "\n").last {
-                                        errorMessage = String(reason)
-                                    }
-                                    else {
-                                        errorMessage = "Conversion Failed"
-                                    }
-                                    break
-                                case ConvertError.invalidURL:
-                                    errorMessage = "Cannot convert this file path"
-                                    break
-                                default:
-                                    errorMessage = "Something weird happened"
-                                }
-                                DispatchQueue.main.async {
-                                    aiMessage.content += errorMessage
-                                    self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
-                                }
-                            }
+                            
                             
                         }
                     } catch {
@@ -786,7 +742,7 @@ class ChatViewModel: ObservableObject {
                         }
                         Task {
                             for url in urls {
-                                let text = url.pathExtension == "pdf" ? getPDFText(url: url)?.string : getDocText(url: url)
+                                let text = extractText(url: url)
                                 if let text = text {
                                     DispatchQueue.main.async {
                                         aiMessage.content += "\n\n"
@@ -828,6 +784,14 @@ class ChatViewModel: ObservableObject {
                 case .call:
                     do {
                         let args = try call.toArgs(CallArgs.self)
+                    }
+                    catch {
+                        print("Failed to decode JSON: \(error)")
+                        self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
+                    }
+                case .readFiles:
+                    do {
+                        let args = try call.toArgs(ReadFilesArgs.self)
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")

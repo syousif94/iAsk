@@ -94,3 +94,5 @@ iOSInjectionProject/
 *.paw
 
 *.xcconfig
+
+.DS_Store

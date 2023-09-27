@@ -263,31 +263,49 @@ func getPDFText(url: URL) -> NSMutableAttributedString? {
 }
 
 /// handles getting the text from any url
-func getDocText(url: URL) -> String? {
-    guard let fileType = FileType(rawValue: url.pathExtension) else {
-        return nil
-    }
+func extractText(url: URL) -> String? {
     
     guard let path = url.isFileURL ? url : getDownloadURL(for: url) else {
         return nil
     }
     
-    if fileType == .pdf {
-        return getPDFText(url: url)?.string
+    let dataType = url.dataType
+    
+    if dataType == .doc, let fileType = FileType(rawValue: url.pathExtension) {
+        // FIXME: extract the text from image based pdfs
+        if fileType == .pdf {
+            return getPDFText(url: url)?.string
+        }
+        
+        // FIXME: handle office docs
+        
+        if fileType == .doc {
+            
+        }
+        if fileType == .docx {
+            
+        }
+        if fileType == .xlsx {
+            
+        }
+        if fileType == .pptx {
+            
+        }
+        
+        // For all other data types, we can read the strings as utf-8
+        do {
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            return contents
+        } catch {
+            print("Error reading file: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    else if dataType == .photo {
+        
     }
     
-    do {
-        let contents = try String(contentsOf: url, encoding: .utf8)
-        return contents
-    } catch {
-        print("Error reading file: \(error.localizedDescription)")
-        return nil
-    }
-}
-
-func isFileExists(url: URL) -> Bool {
-    let fileManager = FileManager.default
-    return fileManager.fileExists(atPath: url.path)
+    return nil
 }
 
 func isFolder(url: URL) -> Bool {
@@ -296,7 +314,6 @@ func isFolder(url: URL) -> Bool {
     let exists = fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory)
     return exists && isDirectory.boolValue
 }
-
 
 func getDataType(url: URL) -> DataType {
     
@@ -337,8 +354,17 @@ func getOpenAIEmbedding(text: String) async throws -> EmbeddingsResult.Embedding
     return result.data.first
 }
 
-func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> String? {
-    guard let embeddingsPath = Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)"), 
+func getEmbeddingURL(for url: URL) -> URL? {
+    return Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)")
+}
+
+struct ScoredEmbedding {
+    let score: Float
+    let record: EmbeddingRecord
+}
+
+func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> [ScoredEmbedding]? {
+    guard let embeddingsPath = getEmbeddingURL(for: url),
             fileExists(at: embeddingsPath) else {
         return nil
     }
@@ -361,22 +387,28 @@ func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> 
     
     let hash = url.hash
     
-    if let records = try? await EmbeddingRecord.read(from: Database.shared.db, primaryKeys: keys.map { "\(hash)\($0)" }) {
-        return records.map { "file_path: \($0.dataId)\nchunk index: \($0.chunkId)\nchunk: \($0.chunk)" }.joined(separator: "\n\n")
+    if let embeddings = try? await EmbeddingRecord.read(from: Database.shared.db, primaryKeys: keys.map { "\(hash)\($0)" }) {
+        return embeddings.compactMap { record -> ScoredEmbedding? in
+            guard let index = UInt64(record.chunkId), let score = scoresDict[index] else {
+                return nil
+            }
+            let scoredEmbedding = ScoredEmbedding(score: score, record: record)
+            return scoredEmbedding
+        }
     }
     
     return nil
 }
 
 func indexText(attachment: Attachment) async throws {
-    guard let url = attachment.url,
-          let fileType = FileType(rawValue: url.pathExtension),
-          let text = getDocText(url: url)
-    else {
+    
+    guard let url = attachment.url, let text = extractText(url: url) else {
         return
     }
     
-    var index = USearchIndex.make(metric: .l2sq, dimensions: 1536, connectivity: 16, quantization: .I8)
+    let fileType = FileType(rawValue: url.pathExtension) ?? FileType.txt
+    
+    let index = USearchIndex.make(metric: .l2sq, dimensions: 1536, connectivity: 16, quantization: .I8)
     
     let splitter = RecursiveCharacterTextSplitter(separators: getSeparators(forLanguage: fileType), chunkSize: 1000, chunkOverlap: 250)
     
@@ -388,42 +420,111 @@ func indexText(attachment: Attachment) async throws {
         let encoded = encoder.encode(text: chunk)
         print("chunk tokens", encoded.count)
     }
-    
-    let id = ID(size: 10)
-    
+
     let now = Date()
     
     let dataId = attachment.dataRecord.path
-    
-    let pathHash = hashString(dataId)
     
     let embeddingId = url.hash
     
     index.reserve(UInt32(chunks.count))
     
-    for (i, chunk) in chunks.enumerated() {
+    await withThrowingTaskGroup(of: Void.self) { group in
         
-        if let data = try await getOpenAIEmbedding(text: chunk) {
+        for (i, chunk) in chunks.enumerated() {
+            
+            group.addTask {
+                if let data = try await getOpenAIEmbedding(text: chunk) {
 
-            let incrementedIndex = UInt64(i + 1)
-            
-            var embedding = data.embedding.map { Float64($0) }
-            
-            index.add(key: incrementedIndex, vector: embedding)
+                    let i = UInt64(i)
+                    
+                    let embedding = data.embedding.map { Float64($0) }
+                    
+                    index.add(key: i, vector: embedding)
 
-            let embeddingRecord = EmbeddingRecord(id: "\(embeddingId)\(incrementedIndex)", dataId: attachment.dataRecord.path, chunkId: String(incrementedIndex), chunk: chunk, embeddingId: embeddingId, createdAt: now)
+                    let embeddingRecord = EmbeddingRecord(id: "\(embeddingId)\(i)", dataId: attachment.dataRecord.path, chunkId: String(i), chunk: chunk, embeddingId: embeddingId, createdAt: now)
+                    
+                    try await embeddingRecord.write(to: Database.shared.db)
+                }
+            }
             
-            try await embeddingRecord.write(to: Database.shared.db)
         }
-        
         
     }
 
-    let embeddingsPath = Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(pathHash)")
+    let embeddingsPath = getEmbeddingURL(for: url)
     
     if let embeddingsPath = embeddingsPath {
         let path = embeddingsPath.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!
         index.save(path: path)
+    }
+}
+
+func answer(query: String, url: URL, onToken: @escaping (_ token: String, _ index: Int, _ jobIndex: Int) -> Void) async {
+    let encoder = GPTEncoder()
+    
+    let promptEncoding = encoder.encode(text: query)
+    
+    let openAI = OpenAI(apiToken: OPEN_AI_KEY)
+    
+    if let text = extractText(url: url), let fileType = FileType(rawValue: url.pathExtension) {
+        
+        let splitter = RecursiveCharacterTextSplitter(separators: getSeparators(forLanguage: fileType), chunkSize: 6000, chunkOverlap: 250)
+        
+        let chunks = splitter.splitText(text)
+        
+        let answers = try? await withThrowingTaskGroup(of: String.self) { group in
+            var answerChunks = [String]()
+            
+            for (index, chunk) in chunks.enumerated() {
+                
+                let systemPrompt = """
+                Extract relevant information to the user's question from the following context. If there is no relevant information to the question, say "There is no relevant information to the question".
+                ---
+                \(chunk)
+                """
+                
+                let query = ChatQuery(model: .gpt3_5Turbo_16k, messages: [
+                    .init(role: .system, content: chunk),
+                    .init(role: .user, content: query)
+                ])
+                
+                group.addTask {
+                    await withCheckedContinuation { continuation in
+                        
+                        var summary = ""
+                        
+                        openAI.chatsStream(query: query) { partialResult in
+                            switch partialResult {
+                            case .success(let result):
+                                if let text = result.choices[0].delta.content {
+                                    summary += text
+                                    onToken(text, result.choices[0].index, index)
+                                }
+                            case .failure(let error):
+                                print(error)
+                            }
+                        } completion: { error in
+                            if let error = error {
+                                print(error)
+                                continuation.resume(returning: "")
+                                return
+                            }
+                            
+                            continuation.resume(returning: summary)
+                        }
+                    }
+                }
+                
+            }
+            
+            for try await result in group {
+                answerChunks.append(result)
+            }
+            
+            return answerChunks
+        }
+        
     }
 }
 
@@ -463,36 +564,162 @@ func summarize(_ text: String, onToken: @escaping (_ token: String) -> Void) asy
     }
 }
 
-func interrogatePDF(_ pdf: PDFDocument) {
-    let pageCount = pdf.pageCount
-    let documentContent = NSMutableAttributedString()
-
-    for i in 0 ..< pageCount {
-        guard let page = pdf.page(at: i) else { continue }
-        guard let pageContent = page.attributedString else { continue }
-        documentContent.append(pageContent)
-    }
-    let encoder = GPTEncoder()
-    let encoded = encoder.encode(text: documentContent.string)
-    print("Total number of token(s): \(encoded.count) and character(s): \(documentContent.string.count)")
-    let openAI = OpenAI(apiToken: OPEN_AI_KEY)
-
-    let transcript = "extract the key points from the following pdf to text extraction. include psuedo code if applicable:\n\n<EXTRACTION>\(documentContent.string)"
-
-    let query = ChatQuery(model: .gpt3_5Turbo_16k, messages: [.init(role: .system, content: transcript)])
-
-    openAI.chatsStream(query: query) { partialResult in
-        switch partialResult {
-        case .success(let result):
-            if let text = result.choices[0].delta.content {
-                print(text)
+func getRequiredFiles(chatModel: ChatViewModel) async -> [URL]? {
+    let attachments = chatModel.latestAttachments
+    
+    let chatMessages = chatModel.latestAiMessages
+    
+    if !attachments.isEmpty {
+        
+        let excludingSystem = chatMessages.dropFirst()
+        
+        let urls = try? await withThrowingTaskGroup(of: URL?.self, body: { group in
+            var urls = [URL]()
+            
+            for attachment in attachments {
+                if let url = attachment.url {
+                    group.addTask {
+                        let isLocal = url.isFileURL
+                        let urlText = isLocal ? url.absoluteString : getDownloadURL(for: url)?.absoluteString
+                        let chatHistory = excludingSystem.map { "\($0.role): \($0.content ?? "")" }.joined(separator: "\n")
+                        var messages: [Chat] = [
+                            .init(role: .system, content: "Do you need the full text of this file in order to fulfill the user's request: \(urlText ?? ""). Chat history: \(chatHistory)")
+                        ]
+                        
+                        let needsDoc = await determine(messages)
+                        
+                        if needsDoc {
+                            return url
+                        }
+                        
+                        return nil
+                    }
+                }
             }
-        case .failure(let error):
-            print(error)
-        }
-    } completion: { error in
-        print(error)
+            
+            for try await url in group {
+                if let url = url {
+                    urls.append(url)
+                }
+            }
+            
+            return urls
+        })
+        
+        return urls
+        
     }
+    
+    return nil
+}
+
+func getTextForChat(chatModel: ChatViewModel) async -> String? {
+    
+    let attachments = chatModel.latestAttachments
+    
+    if attachments.isEmpty {
+        return nil
+    }
+    
+    let encoder = GPTEncoder()
+    
+    var totalEstimatedTokens: Int = 0
+    
+    var ragFiles = [URL]()
+    
+    var researchText = ""
+    
+    if let requiredFiles = await getRequiredFiles(chatModel: chatModel) {
+        
+        var loaded = Set<URL>()
+        
+        for url in requiredFiles {
+            if let text = extractText(url: url) {
+                let encoded = encoder.encode(text: text)
+                if encoded.count < 3000 {
+                    totalEstimatedTokens += encoded.count
+                    loaded.insert(url)
+                    researchText += """
+                    file_path: \(url.absoluteString)
+                    text: \(text)
+                    """
+                }
+                else {
+                    ragFiles.append(url)
+                }
+            }
+        }
+    }
+    
+    print("grabbed required files")
+    
+    if !ragFiles.isEmpty, let ragEmbeddings = await getRagEmbeddings(chatModel: chatModel, urls: ragFiles) {
+        for embedding in ragEmbeddings {
+            researchText += """
+            file_path: \(embedding.record.dataId)
+            chunkId: \(embedding.record.chunkId)
+            query similarity score: \(embedding.score)
+            text: \(embedding.record.chunk)
+            """
+        }
+    }
+    
+    return researchText
+}
+
+func getRagEmbeddings(chatModel: ChatViewModel, urls: [URL]) async -> [ScoredEmbedding]? {
+    let chatMessages = chatModel.latestAiMessages
+    let excludingSystem = chatMessages.dropFirst()
+    let chatHistory = excludingSystem.map { "\($0.role): \($0.content ?? "")" }.joined(separator: "\n")
+    let searchTerms = await extractTerms([
+        .init(role: .system, content: "Extract search queries for the user's last request based on the following chat history: \(chatHistory)")
+    ])
+    
+    let embedded = try? await withThrowingTaskGroup(of: [ScoredEmbedding].self) { group -> [ScoredEmbedding] in
+        
+        var embeddings = [ScoredEmbedding]()
+        
+        for term in searchTerms {
+            group.addTask {
+                return await getEmbeddings(for: term, urls: urls) ?? []
+            }
+        }
+        
+        for try await results in group {
+            embeddings += results
+        }
+        
+        return embeddings
+    }
+    
+    return embedded
+}
+
+func getEmbeddings(for prompt: String, urls: [URL]) async -> [ScoredEmbedding]? {
+    guard let questionEmbedding = try? await getOpenAIEmbedding(text: prompt) else {
+        return []
+    }
+    
+    let scoredEmbeddingsForDocs = try? await withThrowingTaskGroup(of: [ScoredEmbedding]?.self) { group -> [ScoredEmbedding] in
+        
+        var scoredEmbeddingsForDocs = [ScoredEmbedding]()
+        
+        for url in urls {
+            group.addTask {
+                return await searchIndex(url: url, queryEmbedding: questionEmbedding)
+            }
+        }
+        
+        for try await embeddings in group {
+            if let embeddings = embeddings {
+                scoredEmbeddingsForDocs += embeddings
+            }
+        }
+
+        return scoredEmbeddingsForDocs
+    }
+    
+    return scoredEmbeddingsForDocs
 }
 
 enum ImageFileType: String {

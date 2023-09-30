@@ -16,15 +16,35 @@ import UIKit
 import Splash
 import CodeEditor
 import WrappingHStack
+import AlertToast
 
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
+    
+    @StateObject var alerts: AlertViewModel = AlertViewModel()
+    
     var body: some View {
         ChatView()
             .environmentObject(chat)
-            
+            .environmentObject(alerts)
+            .toast(isPresenting: $alerts.show){
+                alerts.alertToast
+            }
     }
 }
+
+class AlertViewModel: ObservableObject{
+    @Published var show = false
+    @Published var alertToast: AlertToast = AlertToast(type: .regular, title: "SOME TITLE") {
+        didSet{
+            withAnimation {
+                show.toggle()
+            }
+        }
+    }
+}
+
+let focusInputNotification = NotificationPublisher<String?>()
 
 struct QuestionInput: View {
     var messageId: String? = nil
@@ -52,7 +72,6 @@ struct QuestionInput: View {
                         if let id = messageId {
                             isAnswering = newValue.contains(id)
                         }
-                        
                     }
                     .padding()
             }
@@ -78,7 +97,14 @@ struct QuestionInput: View {
             .onChange(of: isFocused) { newValue in
                 if newValue {
                     chat.lastEdited = messageId
-                    stopListeningNotification.send(())
+                    DispatchQueue.main.async {
+                        stopListeningNotification.send(())
+                    }
+                }
+            }
+            .onReceive(focusInputNotification.publisher) { id in
+                if messageId == id {
+                    isFocused = true
                 }
             }
     }
@@ -94,8 +120,6 @@ struct ChatView: View {
     @FocusState var isFocused: Bool
     
     @Environment(\.colorScheme) var colorScheme
-    
-    @State var menuShown = false
     
     let keyboardManager = KeyboardManager()
         
@@ -117,17 +141,22 @@ struct ChatView: View {
                             }
                             
                             QuestionInput(transcript: $chat.transcript, isFocused: _isFocused)
+                                .onAppear {
+                                    if Application.isCatalyst {
+                                        isFocused = true
+                                    }
+                                }
                                 
 
                             Button(action: {
-                                if (menuShown) {
-                                    menuShown = false
+                                if (chat.menuShown) {
+                                    chat.menuShown = false
                                     return
                                 }
                                 else if !Application.isCatalyst, isFocused {
                                     UIApplication.shared.endEditing()
                                 }
-                                else {
+                                else if !Application.isCatalyst || !isFocused {
                                     isFocused.toggle()
                                 }
                                 
@@ -135,21 +164,21 @@ struct ChatView: View {
                                 Text("")
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
-                            .frame(height: 390)
+                            .frame(height: geometry.size.height * 0.7)
                         }
                         .id("top")
                         .frame(idealWidth: geometry.size.width, maxHeight: .infinity, alignment: .top)
                         
                         GeometryReader { contentGeometry in
                             Button(action: {
-                                if (menuShown) {
-                                    menuShown = false
+                                if (chat.menuShown) {
+                                    chat.menuShown = false
                                     return
                                 }
-                                else if isFocused {
+                                else if !Application.isCatalyst, isFocused {
                                     UIApplication.shared.endEditing()
                                 }
-                                else {
+                                else if !Application.isCatalyst || !isFocused {
                                     isFocused.toggle()
                                 }
                             }) {
@@ -158,6 +187,7 @@ struct ChatView: View {
                             }
                             .frame(minHeight: geometry.size.height + geometry.safeAreaInsets.top + 10 + geometry.safeAreaInsets.bottom - contentGeometry.frame(in: .global).minY, maxHeight: .infinity)
                             .offset(x: 0, y: -10)
+                            .id("scrollBottom")
                         }
                         
                     }
@@ -200,83 +230,28 @@ struct ChatView: View {
                 VStack {
                     Spacer()
                     HStack {
-                        Spacer()
-                        Menu() {
-                            Button(action: {
-                                menuShown = false
-                                Task {
-                                    await chat.resetChat()
-                                    DispatchQueue.main.async {
-                                        self.chat.scrollProxy?.scrollTo("top", anchor: .top)
-                                    }
-                                    
-                                }
-                            }) {
-                                Label("New Chat", systemImage: "plus.bubble")
-                            }
-                            
-                            Button(action: {
-                                if Application.isCatalyst {
-                                    chat.saveDialog()
-                                }
-                                else {
-                                    chat.shareDialog()
-                                }
-                                menuShown = false
-                            }) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                            
-                            Divider()
-                            
-                            Button(action: {
-                                showCameraNotification.send(true)
-                                menuShown = false
-                            }) {
-                                Label("Camera", systemImage: "camera")
-                            }
-                            
-                            Button(action: {
-                                showDocumentsNotification.send(true)
-                                menuShown = false
-                            }) {
-                                Label("Documents", systemImage: "doc.on.doc")
-                            }
-                            
-                            Button(action: {
-                                showPhotoPickerNotification.send(true)
-                                menuShown = false
-                            }) {
-                                Label("Photos", systemImage: "photo.on.rectangle.angled")
-                            }
-                            
-                            Button(action: {
-                                showWebNotification.send(true)
-                                menuShown = false
-                            }) {
-                                Label("Browser", systemImage: "safari")
-                            }
-                            
-//                            Button(action: {
-//                                startGoogleSignInNotification.send(())
-//                                menuShown = false
-//                            }) {
-//                                Label("Google Account", systemImage: "person.crop.circle")
-//                            }
-                            
-                            Divider()
-                            
-                            Toggle(isOn: $chat.proMode) {
-                                Label("Use GPT4", systemImage: "brain.head.profile")
-                            }
-                            
-                            Button(action: {
 
-                            }) {
-                                Label("Settings", systemImage: "gearshape")
-                            }
-                            
-                        } label: {
+                        Button(action: {
+                            chat.speakAnswer.toggle()
+                        }, label: {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .tint(chat.speakAnswer ? chat.proMode ? .orange : .blue : .gray)
+                                .frame(height: 22)
+                                .padding(17)
+                                .animation(Animation.linear, value: chat.proMode)
+                        })
+                        .buttonStyle(BorderlessButtonStyle())
+                        .background(colorScheme == .dark ?
+                                    Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
+                                    Color(red: 0, green: 0, blue: 0, opacity: 0.05)
+                        )
+                        .clipShape(Circle())
+                        
+                        Spacer()
+                        
+                        AddButton {
                             Image(systemName: "plus")
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
@@ -285,19 +260,12 @@ struct ChatView: View {
                                 .tint(chat.proMode ? .orange : .blue)
                                 .animation(Animation.linear, value: chat.proMode)
                         }
-                        .simultaneousGesture(TapGesture().onEnded {
-                            menuShown = !menuShown
-                        })
                         .opacity(keyboardObserver.isKeyboardVisible ? 0 : 1)
-                        .menuStyle(.borderlessButton)
-                        .background(colorScheme == .dark ?
-                                    Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
-                                    Color(red: 0, green: 0, blue: 0, opacity: 0.05)
-                        )
-                        .clipShape(Circle())
+                        
+                        // MARK: ADD BUTTON END
                     }
-                    .padding(.trailing, 18)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 2)
                         
                 }
                 .padding(.bottom, geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
@@ -320,6 +288,43 @@ struct ChatView: View {
                 ? Color(hex: "#333333")
                 : Color(hex: "#ffffff")
             )
+            .sheet(isPresented: $chat.isPresentingText, content: {
+                ZStack(alignment: .topTrailing) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        GeometryReader { geometry in
+                            CodeEditor(source: chat.presentedText, language: CodeEditor.Language(rawValue: chat.codeLanguage), theme: CodeEditor.ThemeName(rawValue: "xcode"))
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                
+                        }
+                    }
+                    .padding(.top, 30)
+
+                    HStack {
+                        Spacer()
+                        if Application.isCatalyst {
+                            Button("Done") {
+                                chat.isPresentingText.toggle()
+                            }
+                            .padding()
+                        }
+                    }
+                    
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button("Copy") {
+                            }
+                            .padding()
+                            Button("Save") {
+                            }
+                            .padding()
+                        }
+                    }
+                    
+
+                }
+            })
             
         }
     }
@@ -341,26 +346,23 @@ struct InputBar: View {
     
     var body: some View {
         HStack {
-            Button(action: {
-                UIApplication.shared.endEditing()
-                chat.send()
-            }) {
+            AddButton(bgPadding: 4) {
                 Image(systemName: "plus")
-                                .font(.system(size: 24))
-                                .padding()
-            }
-            .background {
-                Circle()
-                    .fill(bg)
-                    .padding(4)
+                    .font(.system(size: 24))
+                    .padding()
+                    .tint(chat.proMode ? .orange : .blue)
+                    .animation(Animation.linear, value: chat.proMode)
             }
             .padding(4)
             .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
             
-            
             Button(action: {
-                UIApplication.shared.endEditing()
-                chat.send()
+                if !chat.isRecording {
+                    UIApplication.shared.endEditing()
+                    withAnimation {
+                        chat.transcribe()
+                    }
+                }
             }) {
                 Image(systemName: "mic.fill")
                                 .font(.system(size: 24))
@@ -381,6 +383,7 @@ struct InputBar: View {
                 chat.send()
             }) {
                 Image(systemName: "play.fill")
+                    .tint(.green)
                                 .font(.system(size: 24))
                                 .padding()
             }
@@ -468,9 +471,12 @@ struct MessageView: View {
     
     @Environment(\.colorScheme) var colorScheme
 
-    @State private var showCode = false
-    @State private var selectedCode = ""
-    @State private var selectedLanguage = ""
+//    @State private var showCode = false
+//    @State private var selectedCode = ""
+//    @State private var selectedLanguage = ""
+    
+//    @EnvironmentObject var alerts: AlertViewModel
+    @EnvironmentObject var chat: ChatViewModel
     
     var isPad: Bool {
         return UIDevice.current.userInterfaceIdiom == .pad || Application.isCatalyst
@@ -499,77 +505,129 @@ struct MessageView: View {
                         VStack {
                             configuration.label
                                 .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
-                                .contextMenu {
-                                    Button("Copy", role: .none) {
-                                        copyToClipboard(text: configuration.content.renderPlainText())
-                                    }
-                                }
+                                
                         }
                         
 
                     })
                     .markdownBlockStyle(\.codeBlock, body: { configuration in
-                        VStack(alignment: .leading) {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                if isPad {
-                                    configuration.label
-                                          .relativeLineSpacing(.em(0.25))
-                                          .padding()
-                                }
-                                else {
-                                    configuration.label
-                                          .relativeLineSpacing(.em(0.25))
-                                          .markdownTextStyle {
-                                              FontSize(14)
-                                          }
-                                          .padding()
-                                }
-                            }
-                            
-                            .background(Color(hex: "#000000", alpha: 0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .markdownMargin(top: .em(0.8), bottom: .em(0.8))
-                            .gesture(TapGesture().onEnded({ value in
-                                  selectedLanguage = configuration.language ?? ""
-                                  selectedCode = configuration.content
-                                  print(selectedLanguage)
-                                  showCode.toggle()
-                            }))
-                            .contextMenu {
-                                Button("Select") {
-                                    selectedLanguage = configuration.language ?? ""
-                                    selectedCode = configuration.content
-                                    print(selectedLanguage)
-                                    showCode.toggle()
-                                }
-                            }
-                        }
-                        .padding(.top)
-                        .padding(.bottom)
+                        MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
                     })
-                    .sheet(isPresented: $showCode, content: {
-                        ZStack(alignment: .topTrailing) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                GeometryReader { geometry in
-                                    CodeEditor(source: $selectedCode, language: CodeEditor.Language(rawValue: selectedLanguage), theme: CodeEditor.ThemeName(rawValue: "xcode"))
-                                        .frame(width: geometry.size.width, height: geometry.size.height)
-                                }
-                            }
-                            if Application.isCatalyst {
-                                HStack {
-                                    Spacer()
-                                    Button("Done") {
-                                        showCode.toggle()
-                                    }
-                                    .padding()
-                                }
-                            }
-                        }
+                    .onChange(of: chat.isPresentingText, perform: { newValue in
+                        print("show code changed in parent", newValue)
+                        chat.isPresentingText = newValue
                     })
+                    .simultaneousGesture(TapGesture().onEnded({
+                        UIApplication.shared.endEditing()
+                    }))
+                    .contextMenu {
+                        Button("Copy", role: .none) {
+
+                        }
+                    }
             }
         }
         
     
+}
+
+struct MarkdownCodeView: View {
+    var message: Message
+    
+    @FocusState var isFocused: Bool
+    
+    @Environment(\.colorScheme) var colorScheme
+
+    @Binding var showCode: Bool
+    @Binding var selectedCode: String
+    @Binding var selectedLanguage: String
+    var configuration: CodeBlockConfiguration
+    
+    @EnvironmentObject var alerts: AlertViewModel
+    @EnvironmentObject var chat: ChatViewModel
+    
+    init(message: Message, configuration: CodeBlockConfiguration, isFocused: FocusState<Bool>, showCode: Binding<Bool>, selectedCode: Binding<String>, selectedLanguage: Binding<String>) {
+        self.message = message
+        self._isFocused = isFocused
+        self._showCode = showCode
+        self._selectedCode = selectedCode
+        self._selectedLanguage = selectedLanguage
+        self.configuration = configuration
+    }
+    
+    var isPad: Bool {
+        return UIDevice.current.userInterfaceIdiom == .pad || Application.isCatalyst
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                if isPad {
+                    configuration.label
+                          .relativeLineSpacing(.em(0.25))
+                          .padding()
+                }
+                else {
+                    configuration.label
+                          .relativeLineSpacing(.em(0.25))
+                          .markdownTextStyle {
+                              FontSize(14)
+                          }
+                          .padding()
+                }
+            }
+            .background(Color(hex: "#000000", alpha: 0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .markdownMargin(top: .em(0.8), bottom: .em(0.8))
+            .onTapGesture {
+                selectedLanguage = configuration.language ?? ""
+                selectedCode = configuration.content
+                showCode.toggle()
+                print("tap gesture completed", showCode)
+            }
+            .onDrag {
+                let selectedCode = configuration.content
+                var lang = configuration.language
+                if lang == nil || lang!.isEmpty {
+                    lang = "md"
+                }
+                guard let url = try? selectedCode.toCache(ext: lang!), let provider = NSItemProvider(contentsOf: url) else {
+                    return NSItemProvider()
+                }
+                chat.currentlyDragging = url
+                provider.suggestedName = url.lastPathComponent
+                return provider
+            }
+            .contextMenu {
+                Button("Edit") {
+                    
+                    DispatchQueue.main.async {
+                        selectedLanguage = configuration.language ?? ""
+                        selectedCode = configuration.content
+                        showCode.toggle()
+                    }
+                    
+                }
+                Button("Copy") {
+                    let selectedCode = configuration.content
+                    copyToClipboard(text: selectedCode)
+                    alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
+                }
+                Button("Save") {
+                    var selectedCode = configuration.content
+                    var lang = configuration.language
+                    if lang == nil || lang!.isEmpty {
+                        lang = "md"
+                    }
+                    if let url = try? selectedCode.toCache(ext: lang!) {
+                        showSaveNotification.send([url])
+                    }
+                }
+            }
+        }
+        .padding(.top)
+        .padding(.bottom)
+    }
 }
 
 private extension MessageView {
@@ -592,7 +650,8 @@ struct DataMessageView: View {
         WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
             AttachmentView(message: message, attachment: attachment)
         }
-        .frame(maxHeight: .infinity)
+        .frame(
+            maxHeight: .infinity)
     }
 }
 

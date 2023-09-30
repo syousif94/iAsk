@@ -22,6 +22,8 @@ let stopListeningNotification = NotificationPublisher<Void>()
 
 class ChatViewModel: ObservableObject {
     
+    var currentlyDragging: URL?
+    
     var scrollProxy: ScrollViewProxy?
     
     enum RecognizerError: Error {
@@ -66,6 +68,14 @@ class ChatViewModel: ObservableObject {
     
     @Published var isAnswering = Set<String>()
     @Published var lastEdited: String? = nil
+    
+    /// handles the text selection modal
+    @Published var isPresentingText: Bool = false
+    @Published var presentedText: String = ""
+    @Published var codeLanguage: String = ""
+    @Published var highlightingReady: Bool = false
+    
+    @Published var menuShown: Bool = false
     
     /// the volume of the user's speech
     @Published var decibles: CGFloat = -160
@@ -113,7 +123,12 @@ class ChatViewModel: ObservableObject {
             }
             
         }
+        
         scrollMessagesList.send(0)
+        
+        if Application.isCatalyst {
+            focusInputNotification.send(nil)
+        }
     }
     
     init(id: String? = nil) {
@@ -227,9 +242,12 @@ class ChatViewModel: ObservableObject {
     }
     
     private func setupStopListeningListener() {
-        stopListeningNotification.publisher.sink { _ in
-            self.stopTranscribing()
-        }.store(in: &cancellables)
+        DispatchQueue.main.async {
+            stopListeningNotification.publisher.sink { _ in
+                self.stopTranscribing()
+            }.store(in: &self.cancellables)
+        }
+        
     }
     
     func importURLs(urls: [URL]) async {
@@ -247,7 +265,7 @@ class ChatViewModel: ObservableObject {
         for url in urls {
             
             let attachment = await message.attach(url: url)
-            
+        
         }
         
         await message.save()
@@ -417,7 +435,12 @@ class ChatViewModel: ObservableObject {
         }
         
         var chatMessages: [Chat] = [
-            .init(role: .system, content: "You are an AI personal assistant that obeys the following rules: 1. Put all code for a single file in a single code block. 2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites. 3. Don’t make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous. 4. Search for links online if the user asks specifically for links or urls")
+            .init(role: .system, content: """
+            You are a genius personal assistant. You have the following guidelines:
+            1. NEVER TRUNCATE CODE!!
+            2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
+            3. Always attempt to rewrite code in other languages. Give it your best effort.
+            """)
         ]
         
         let aiMessage: Message
@@ -477,16 +500,17 @@ class ChatViewModel: ObservableObject {
         }
         
         if let text = await getTextForChat(chatModel: self), !text.isEmpty, let message = chatMessages.last?.content {
+            
             let lastIndex = chatMessages.count - 1
+            
             chatMessages[lastIndex] = .init(role: .user, content: """
             Use the following context to complete this request: \(message)
             
             <CONTEXT>
+            
             \(text)
             
             """)
-            
-            print(chatMessages[lastIndex])
         }
         
         let functions = getFunctions()
@@ -515,9 +539,9 @@ class ChatViewModel: ObservableObject {
                         call.arguments += arguments
                         
                         if call.nameCompleted {
-//                            DispatchQueue.main.async {
-//                                aiMessage.content += arguments
-//                            }
+                            DispatchQueue.main.async {
+                                aiMessage.content += arguments
+                            }
                         }
                         
                         if !call.nameCompleted, let function = FunctionCall(rawValue: call.name) {
@@ -543,16 +567,20 @@ class ChatViewModel: ObservableObject {
                                 DispatchQueue.main.async {
                                     aiMessage.content = "Summarizing"
                                 }
+                            case .readFiles:
+                                DispatchQueue.main.async {
+                                    aiMessage.content = "Reading Files"
+                                }
                             default:
                                 break
                             }
-//                            DispatchQueue.main.async {
-//                                aiMessage.content += """
-//                                
-//                                ```json
-//                                
-//                                """
-//                            }
+                            DispatchQueue.main.async {
+                                aiMessage.content += """
+                                
+                                ```json
+                                
+                                """
+                            }
                         }
                     }
                 }
@@ -565,13 +593,13 @@ class ChatViewModel: ObservableObject {
                 aiMessage.record.functionCallName = call.name
                 aiMessage.record.functionCallArgs = call.arguments
                 
-//                DispatchQueue.main.async {
-//                    aiMessage.content += """
-//                    
-//                    ```
-//                    
-//                    """
-//                }
+                DispatchQueue.main.async {
+                    aiMessage.content += """
+                    
+                    ```
+                    
+                    """
+                }
 
                 switch function {
                 case .getUserLocation:
@@ -792,6 +820,34 @@ class ChatViewModel: ObservableObject {
                 case .readFiles:
                     do {
                         let args = try call.toArgs(ReadFilesArgs.self)
+                        let files = args.files
+                        
+                        let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .text, functionCallName: call.name)
+                        
+                        let functionMessage = Message(record: functionMessageRecord)
+                        
+                        Task {
+                            let text = await readFiles(urls: files.compactMap { URL(string: $0) }) {
+                                return await getTerms(for: self)
+                            }
+                            
+                            if let text = text {
+                                functionMessage.content = text
+                            }
+                            
+                            self.messages.append(functionMessage)
+                            
+                            self.endGenerating(lastEdited: lastEdited, message: lastUserMessage)
+                            
+                            async let saveFunctionMessage = functionMessage.save()
+                            
+                            await saveFunctionMessage
+                            
+                            await self.callChat()
+                            
+                        }
+                        
+                        
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")

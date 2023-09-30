@@ -16,21 +16,29 @@ import NanoID
 import Blackbird
 
 class Message: ObservableObject {
+    // the database representation of the message only
     var record: MessageRecord
+    
+    // abstraction over joined attachments and data
     @Published var attachments: [Attachment] = []
     
+    // use this to control the display of the message
     @Published var content = "" {
         didSet {
             record.content = content
         }
     }
     
+    // use this to keep track of the call type
+    @Published var functionType: FunctionCall? = nil
+    
+    // renders the message for MacPaw's openAI lib
     var ai: Chat {
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { attachment in
-//                if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
-//                    return "file_path: \(path.absoluteString)"
-//                }
+                if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
+                    return "file_path: \(path.absoluteString)"
+                }
                 return "file_path: \(attachment.dataRecord.path)"
             }.joined(separator: "\n")
             if record.role == .function {
@@ -47,6 +55,7 @@ class Message: ObservableObject {
         return .init(role: record.role, content: record.content)
     }
     
+    // renders the message for export
     var md: String? {
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { "file_path: \($0.dataRecord.path)" }.joined(separator: "\n")
@@ -61,11 +70,13 @@ class Message: ObservableObject {
         return record.role == .user ? "**\(record.content)**" : record.content
     }
     
+    // just make up a record
     init(record: MessageRecord) {
         self.record = record
         self.content = record.content
     }
     
+    // don't remember where this is used lol
     init(chatId: String) {
         let now = Date()
         self.record = MessageRecord(chatId: chatId, createdAt: now, content: "", role: .user, messageType: .data)
@@ -124,6 +135,7 @@ class Message: ObservableObject {
         self.attachments += attachments
     }
     
+    // FIXME: remove the attachment record and potentially the data
     func detach(attachment: Attachment) {
         
     }

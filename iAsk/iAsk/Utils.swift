@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import SwiftUI
 import CryptoKit
+import NanoID
 
 func isiOSAppOnMac() -> Bool {
     if #available(iOS 14.0, *) {
@@ -193,5 +194,17 @@ func deleteFile(at url: URL) {
         print("File deleted successfully")
     } catch {
         print("Error deleting file: \(error)")
+    }
+}
+
+extension String {
+    func toCache(ext: String = "md") throws -> URL? {
+        let gen = ID(size: 8)
+        let id = gen.generate()
+        if let url = Path.cache.getPath(for: "exports/\(id)/export.\(ext)") {
+            try write(to: url, atomically: true, encoding: .utf8)
+            return url
+        }
+        return nil
     }
 }

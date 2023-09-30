@@ -583,12 +583,19 @@ func getRequiredFiles(chatModel: ChatViewModel) async -> [URL]? {
                         let urlText = isLocal ? url.absoluteString : getDownloadURL(for: url)?.absoluteString
                         let chatHistory = excludingSystem.map { "\($0.role): \($0.content ?? "")" }.joined(separator: "\n")
                         var messages: [Chat] = [
-                            .init(role: .system, content: "Do you need the full text of this file in order to fulfill the user's request: \(urlText ?? ""). Chat history: \(chatHistory)")
+                            .init(role: .system, content: """
+                            Do you need to read this file?
+
+                            file_path: \(urlText ?? "")
+                            """)
                         ]
+                        
+                        messages += excludingSystem
                         
                         let needsDoc = await determine(messages)
                         
                         if needsDoc {
+                            print("needs the file", url)
                             return url
                         }
                         
@@ -613,14 +620,7 @@ func getRequiredFiles(chatModel: ChatViewModel) async -> [URL]? {
     return nil
 }
 
-func getTextForChat(chatModel: ChatViewModel) async -> String? {
-    
-    let attachments = chatModel.latestAttachments
-    
-    if attachments.isEmpty {
-        return nil
-    }
-    
+func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
     let encoder = GPTEncoder()
     
     var totalEstimatedTokens: Int = 0
@@ -629,51 +629,76 @@ func getTextForChat(chatModel: ChatViewModel) async -> String? {
     
     var researchText = ""
     
-    if let requiredFiles = await getRequiredFiles(chatModel: chatModel) {
-        
-        var loaded = Set<URL>()
-        
-        for url in requiredFiles {
-            if let text = extractText(url: url) {
-                let encoded = encoder.encode(text: text)
-                if encoded.count < 3000 {
-                    totalEstimatedTokens += encoded.count
-                    loaded.insert(url)
-                    researchText += """
-                    file_path: \(url.absoluteString)
-                    text: \(text)
-                    """
-                }
-                else {
-                    ragFiles.append(url)
-                }
+    var loaded = Set<URL>()
+    
+    for url in urls {
+        if let text = extractText(url: url) {
+            let encoded = encoder.encode(text: text)
+            let textURL = (url.isFileURL ? url : getDownloadURL(for: url))!.absoluteString
+            if encoded.count < 10000 {
+                totalEstimatedTokens += encoded.count
+                loaded.insert(url)
+                researchText += """
+                file_path: \(textURL)
+                text: \(text)
+                """
+            }
+            else {
+                ragFiles.append(url)
             }
         }
     }
     
-    print("grabbed required files")
-    
-    if !ragFiles.isEmpty, let ragEmbeddings = await getRagEmbeddings(chatModel: chatModel, urls: ragFiles) {
-        for embedding in ragEmbeddings {
-            researchText += """
-            file_path: \(embedding.record.dataId)
-            chunkId: \(embedding.record.chunkId)
-            query similarity score: \(embedding.score)
-            text: \(embedding.record.chunk)
-            """
+    if !ragFiles.isEmpty {
+        let terms = await getTerms()
+        if !terms.isEmpty, let ragEmbeddings = await getRagEmbeddings(searchTerms: terms, urls: ragFiles) {
+            for embedding in ragEmbeddings {
+                researchText += """
+                file_path: \(embedding.record.dataId)
+                chunkId: \(embedding.record.chunkId)
+                query similarity score: \(embedding.score)
+                text: \(embedding.record.chunk)
+                """
+            }
         }
+        
     }
     
     return researchText
 }
 
-func getRagEmbeddings(chatModel: ChatViewModel, urls: [URL]) async -> [ScoredEmbedding]? {
+func getTextForChat(chatModel: ChatViewModel) async -> String? {
+    
+    let attachments = chatModel.latestAttachments
+    
+    let urls = attachments.compactMap { $0.url }
+    
+    print("loading urls for chat", urls)
+    
+    guard !urls.isEmpty else {
+        return nil
+    }
+
+    return await readFiles(urls: urls) {
+        return await getTerms(for: chatModel)
+    }
+}
+
+func getTerms(for chatModel: ChatViewModel) async -> [String] {
     let chatMessages = chatModel.latestAiMessages
     let excludingSystem = chatMessages.dropFirst()
     let chatHistory = excludingSystem.map { "\($0.role): \($0.content ?? "")" }.joined(separator: "\n")
+    print("chat history", chatHistory)
     let searchTerms = await extractTerms([
-        .init(role: .system, content: "Extract search queries for the user's last request based on the following chat history: \(chatHistory)")
+        .init(role: .system, content: "Come up with research questions for the following chat history:\n\n \(chatHistory)")
     ])
+    
+    print("retrieved search terms for model", searchTerms)
+    
+    return searchTerms
+}
+
+func getRagEmbeddings(searchTerms: [String], urls: [URL]) async -> [ScoredEmbedding]? {
     
     let embedded = try? await withThrowingTaskGroup(of: [ScoredEmbedding].self) { group -> [ScoredEmbedding] in
         

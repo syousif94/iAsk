@@ -66,8 +66,17 @@ class HistoryViewModel: ObservableObject {
     
     @Published var searchValue = ""
     
+    @Published var transcriptManager = TranscriptManager()
+    
     init() {
         setupSearchHandler()
+        
+        transcriptManager.onTranscript = { transcript in
+            DispatchQueue.main.async {
+                self.searchValue = transcript
+            }
+            
+        }
     }
     
     func setupSearchHandler() {
@@ -205,8 +214,10 @@ class HistoryViewModel: ObservableObject {
         
         var messageList = filterMessages?.compactMap { $0.chatId }
 
+        var foundMessages = true
         if messageList == nil || messageList!.isEmpty {
             messageList = ["1"]
+            foundMessages = false
         }
         
         let chatIds = OrderedSet(messageList!)
@@ -215,9 +226,10 @@ class HistoryViewModel: ObservableObject {
         
         self.updateChats()
         
-        DispatchQueue.main.async {
+        if foundMessages {
             self.scrollProxy?.scrollTo("top", anchor: .top)
         }
+        
         
         return
     }

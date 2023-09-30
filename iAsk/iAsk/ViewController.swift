@@ -243,7 +243,8 @@ class ViewController: UIViewController {
         Browser.shared.view.setNeedsLayout()
         Browser.shared.view.layoutIfNeeded()
         
-        if !documentPicker.isSaving {
+        if !currentChat.isPresentingText && !documentPicker.isSaving {
+            print("scrolled to page", currentChat.isPresentingText, currentPage)
             scrollView.contentOffset.x = scrollView.frame.width * CGFloat(currentPage)
         }
     }
@@ -309,7 +310,7 @@ class ViewController: UIViewController {
 extension ViewController: UIScrollViewDelegate {
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         let pageWidth = scrollView.frame.size.width
-        currentPage = Int(scrollView.contentOffset.x / pageWidth)
+        currentPage = Int(ceil(scrollView.contentOffset.x / pageWidth))
     }
 }
 
@@ -333,6 +334,10 @@ struct MySwiftUIView: View {
             }
         }
     }
+}
+
+enum GenericError: Error {
+    case error(String)
 }
 
 extension ViewController: UIDropInteractionDelegate {
@@ -364,8 +369,12 @@ extension ViewController: UIDropInteractionDelegate {
         for item in session.items {
             providers.append(item.itemProvider)
         }
+        
+        let currentlyDraggingURL = self.currentChat.currentlyDragging
+        var currentChat = self.currentChat
+        
         Task {
-            let urls = try? await withThrowingTaskGroup(of: URL?.self) { group -> [URL] in
+            let urls = try? await withThrowingTaskGroup(of: URL?.self) { [currentChat] group -> [URL] in
                 
                 var vals = [URL]()
 
@@ -376,8 +385,16 @@ extension ViewController: UIDropInteractionDelegate {
                                 return try await withCheckedThrowingContinuation { continuation in
                                     provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
                                         guard let url = url else {
+                                            continuation.resume(throwing: GenericError.error("URL is nil"))
                                             return
                                         }
+                                        
+                                        guard url.lastPathComponent != currentlyDraggingURL?.lastPathComponent else {
+                                            currentChat.currentlyDragging = nil
+                                            continuation.resume(throwing: GenericError.error("URL is dragging"))
+                                            return
+                                        }
+                                        
                                         let fileManager = FileManager.default
                                         let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
                                         let tempURL = cacheDirectory.appending(component: url.lastPathComponent)
@@ -402,7 +419,7 @@ extension ViewController: UIDropInteractionDelegate {
                                 }
                             }
                             
-                            return try await loadInPlaceFileRepresentationAsync(forTypeIdentifier: fileType)
+                            return try? await loadInPlaceFileRepresentationAsync(forTypeIdentifier: fileType)
                         }
                     }
                 }

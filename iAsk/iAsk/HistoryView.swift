@@ -107,6 +107,8 @@ struct HistoryView: View {
 struct HistorySearchInput: View {
     @EnvironmentObject var history: HistoryViewModel
     
+    @State var isRecording = false
+    
     var body: some View {
         ZStack(alignment: .leading) {
             TextField("Search", text: $history.searchValue)
@@ -120,19 +122,41 @@ struct HistorySearchInput: View {
                 .foregroundColor(.gray)
                 .padding(.leading, 10)
             
-            if !history.searchValue.isEmpty {
-                HStack {
-                    Spacer()
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    if history.transcriptManager.isRecording {
+                        history.transcriptManager.stopTranscribing()
+                    }
+                    else {
+                        history.transcriptManager.transcribe()
+                    }
+                }) {
+                    Image(systemName: "mic.fill")
+                        .foregroundColor(isRecording ? .red : .gray)
+                        .padding(.trailing, 10)
+                        .frame(minHeight: 44)
+                        .onReceive(history.transcriptManager.$isRecording) { newValue in
+                            self.isRecording = newValue
+                        }
+                }
+                
+                if !history.searchValue.isEmpty {
                     Button(action: {
                         history.searchValue = ""
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray)
                             .padding(.trailing, 10)
+                            .frame(minHeight: 44)
                     }
+                    
                 }
                 
             }
+            
+            
         }
         .background(Color.gray.opacity(0.2))
         .cornerRadius(8)

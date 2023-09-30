@@ -8,6 +8,7 @@
 import Foundation
 import FFmpeg_Kit
 import NanoID
+import ImageIO
 
 enum ConvertError: Error {
     case invalidURL
@@ -36,6 +37,12 @@ extension ConvertMediaArgs.ItemArgs {
         let isMp3 = outputExtension == "mp3"
         if isMp3 {
             outputExtension = "m4a"
+        }
+        
+        if url.pathExtension == "png" {
+            if isAPNG(url: url) {
+                print("Oh no, an animated PNG!")
+            }
         }
         
         if outputExtension == nil || outputExtension == url.pathExtension {
@@ -143,4 +150,13 @@ func printEncoders() {
     else {
         print("fail", FFmpegKitConfig.sessionState(toString: session.getState()))
     }
+}
+
+func isAPNG(url: URL) -> Bool {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+        return false
+    }
+    
+    let count = CGImageSourceGetCount(source)
+    return count > 1
 }

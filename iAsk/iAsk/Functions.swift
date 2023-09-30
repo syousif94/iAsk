@@ -160,18 +160,18 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               required: ["files"]
             )
       ),
-      ChatFunctionDeclaration(
-          name: "python",
-          description: "Run python code and get the output back",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "script": .init(type: .string, description: "The python code to run")
-              ],
-              required: ["script"]
-            )
-      ),
+//      ChatFunctionDeclaration(
+//          name: "python",
+//          description: "Run python code and get the output back",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "script": .init(type: .string, description: "The python code to run")
+//              ],
+//              required: ["script"]
+//            )
+//      ),
       ChatFunctionDeclaration(
           name: "call",
           description: "Call a phone number on behalf of the user.",

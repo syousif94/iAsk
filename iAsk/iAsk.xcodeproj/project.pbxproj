@@ -13,6 +13,8 @@
 		530948D32A81CC0300EC98F9 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530948D22A81CC0300EC98F9 /* ViewController.swift */; };
 		530948D82A81CC0500EC98F9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 530948D72A81CC0500EC98F9 /* Assets.xcassets */; };
 		530948DB2A81CC0500EC98F9 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 530948D92A81CC0500EC98F9 /* LaunchScreen.storyboard */; };
+		5328865C2AC64EEC00B7FB92 /* AlertToast in Frameworks */ = {isa = PBXBuildFile; productRef = 5328865B2AC64EEC00B7FB92 /* AlertToast */; };
+		532F313B2AC7C3260012D939 /* AddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532F313A2AC7C3260012D939 /* AddButton.swift */; };
 		538106242AA07432007F759E /* FFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 538106232AA07432007F759E /* FFmpeg */; };
 		538106262AA07432007F759E /* FFmpeg-Kit in Frameworks */ = {isa = PBXBuildFile; productRef = 538106252AA07432007F759E /* FFmpeg-Kit */; };
 		538106272AA07441007F759E /* FFmpeg in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 538106232AA07432007F759E /* FFmpeg */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -83,6 +85,7 @@
 		530948D72A81CC0500EC98F9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		530948DA2A81CC0500EC98F9 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		530948DC2A81CC0500EC98F9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		532F313A2AC7C3260012D939 /* AddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddButton.swift; sourceTree = "<group>"; };
 		538106302AA16F95007F759E /* Extensions.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Extensions.json; sourceTree = "<group>"; };
 		538106322AA59285007F759E /* RecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordButton.swift; sourceTree = "<group>"; };
 		538106342AA83E76007F759E /* TextSplitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSplitter.swift; sourceTree = "<group>"; };
@@ -117,6 +120,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				538106262AA07432007F759E /* FFmpeg-Kit in Frameworks */,
+				5328865C2AC64EEC00B7FB92 /* AlertToast in Frameworks */,
 				5384D6182A82F72C00BA85A1 /* NanoID in Frameworks */,
 				5381063D2AAFF2B2007F759E /* ZIPFoundation in Frameworks */,
 				5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */,
@@ -174,6 +178,7 @@
 				5384D6382A8E124100BA85A1 /* HistoryViewModel.swift */,
 				5384D60C2A82F44A00BA85A1 /* ChatView.swift */,
 				538106322AA59285007F759E /* RecordButton.swift */,
+				532F313A2AC7C3260012D939 /* AddButton.swift */,
 				538106362AAA94FA007F759E /* Functions.swift */,
 				5384D6142A82F6FD00BA85A1 /* ChatViewModel.swift */,
 				538106302AA16F95007F759E /* Extensions.json */,
@@ -237,6 +242,7 @@
 				5381063C2AAFF2B2007F759E /* ZIPFoundation */,
 				5381063F2AB124E8007F759E /* SwiftSoup */,
 				53002D392AB900CA007AAFF4 /* FuzzyFind */,
+				5328865B2AC64EEC00B7FB92 /* AlertToast */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -287,6 +293,7 @@
 				5381063B2AAFF2B1007F759E /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 				5381063E2AB124E8007F759E /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 				53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */,
+				5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -326,6 +333,7 @@
 				5384D6132A82F61300BA85A1 /* Keyboard.swift in Sources */,
 				5384D63D2A8EF2D300BA85A1 /* Location.swift in Sources */,
 				5384D6112A82F5BF00BA85A1 /* Browser.swift in Sources */,
+				532F313B2AC7C3260012D939 /* AddButton.swift in Sources */,
 				538106372AAA94FA007F759E /* Functions.swift in Sources */,
 				530948D32A81CC0300EC98F9 /* ViewController.swift in Sources */,
 				5384D6092A81DE6100BA85A1 /* NotificationCenter.swift in Sources */,
@@ -579,6 +587,14 @@
 				minimumVersion = 0.1.0;
 			};
 		};
+		5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/elai950/AlertToast.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 		538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tylerjonesio/ffmpeg-kit-spm.git";
@@ -738,6 +754,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */;
 			productName = FuzzyFind;
+		};
+		5328865B2AC64EEC00B7FB92 /* AlertToast */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */;
+			productName = AlertToast;
 		};
 		538106232AA07432007F759E /* FFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;

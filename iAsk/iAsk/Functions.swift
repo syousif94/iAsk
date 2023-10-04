@@ -282,27 +282,27 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               required: []
             )
       ),
-      ChatFunctionDeclaration(
-          name: "write_files",
-          description: "Write data to files based on their path. Do not worry about overwriting files.",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "files": .init(
-                    type: .array,
-                    description: "A list of file objects to write to",
-                    items: JSONSchema.Items(
-                        type: .object,
-                        properties: [
-                                    "path":.init(type: .string, description: "path to write to"),
-                                    "content": .init(type: .string, description: "the file content")
-                        ]
-                ))
-              ],
-              required: ["files"]
-            )
-      ),
+//      ChatFunctionDeclaration(
+//          name: "write_files",
+//          description: "Write data to files based on their path. Do not worry about overwriting files.",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "files": .init(
+//                    type: .array,
+//                    description: "A list of file objects to write to",
+//                    items: JSONSchema.Items(
+//                        type: .object,
+//                        properties: [
+//                                    "path":.init(type: .string, description: "path to write to"),
+//                                    "content": .init(type: .string, description: "the file content")
+//                        ]
+//                ))
+//              ],
+//              required: ["files"]
+//            )
+//      ),
       ChatFunctionDeclaration(
           name: "read_files",
           description: "Read files using their path",

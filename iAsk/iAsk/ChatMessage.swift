@@ -29,8 +29,16 @@ class Message: ObservableObject {
         }
     }
     
+    @Published var answering = false
+    
     // use this to keep track of the call type
     @Published var functionType: FunctionCall? = nil
+    
+    @Published var functionLog = "" {
+        didSet {
+            record.functionLog = functionLog
+        }
+    }
     
     // renders the message for MacPaw's openAI lib
     var ai: Chat {
@@ -70,10 +78,15 @@ class Message: ObservableObject {
         return record.role == .user ? "**\(record.content)**" : record.content
     }
     
-    // just make up a record
     init(record: MessageRecord) {
         self.record = record
         self.content = record.content
+        if let name = record.functionCallName {
+            self.functionType = FunctionCall(rawValue: name)
+        }
+        if let log = record.functionLog {
+            self.functionLog = log
+        }
     }
     
     // don't remember where this is used lol
@@ -136,8 +149,21 @@ class Message: ObservableObject {
     }
     
     // FIXME: remove the attachment record and potentially the data
-    func detach(attachment: Attachment) {
+    func detach(attachment: Attachment) async {
+        let db = Database.shared.db
         
+        let otherExamples = try? await AttachmentRecord.read(from: db, sqlWhere: "dataId = ? ORDER BY createdAt DESC", arguments: [attachment.dataRecord.path])
+        
+        print(otherExamples)
+        
+        DispatchQueue.main.async {
+            self.attachments = self.attachments.filter { a in
+                a.dataRecord.path != attachment.dataRecord.path
+            }
+        }
+        
+//        try? await attachment.attachmentRecord.delete(from: db)
+//        try? await attachment.dataRecord.delete(from: db)
     }
     
     static func load(id: String) async -> Message? {
@@ -301,20 +327,26 @@ class Attachment: ObservableObject {
     }
     
     private func loadPreviewImage() -> UIImage? {
+        
         guard let url = self.url else {
             return nil
         }
-        switch dataRecord.dataType {
-        case .photo:
-            return UIImage(url: url)
-        case .video, .doc, .url:
-            if let image = ImageCache.get(url) {
-                return image
+        
+        let urlDataType = url.dataType
+        
+        if urlDataType == .doc, let fileType = FileType(rawValue: url.pathExtension) {
+            if fileType == .pdf || dataRecord.dataType == .url {
+                return ImageCache.get(url)
             }
-            return nil
-        default:
-            return nil
         }
+        else if urlDataType == .photo {
+            return UIImage(url: url)
+        }
+        else if urlDataType == .video || dataRecord.dataType == .url {
+            return ImageCache.get(url)
+        }
+        
+        return nil
     }
     
     func generatePreviewImage() {
@@ -371,7 +403,10 @@ class Attachment: ObservableObject {
         }
         
         return attachmentRecords.compactMap {
-            Attachment(attachmentRecord: $0, dataRecord: dataDict[$0.dataId]!)
+            guard let record = dataDict[$0.dataId] else {
+                return nil
+            }
+            return Attachment(attachmentRecord: $0, dataRecord: record)
         }
     }
 }

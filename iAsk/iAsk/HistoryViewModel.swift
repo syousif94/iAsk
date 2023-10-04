@@ -176,11 +176,16 @@ class HistoryViewModel: ObservableObject {
             if let chatLog = self.chatLogs[messageRecord.chatId] {
                 if let existingMessage = chatLog.messageDict[messageRecord.id] {
                     chatLog.messageDict.updateValue(message, forKey: existingMessage.record.id)
-                    chatLog.updateMessages()
+                    DispatchQueue.main.async {
+                        chatLog.updateMessages()
+                    }
+                    
                 }
                 else {
                     chatLog.messageDict.updateValue(message, forKey: messageRecord.id)
-                    chatLog.updateMessages()
+                    DispatchQueue.main.async {
+                        chatLog.updateMessages()
+                    }
                 }
             }
             else if let chatRecord = try? await ChatRecord.read(from: Database.shared.db, id: messageRecord.chatId) {
@@ -222,16 +227,15 @@ class HistoryViewModel: ObservableObject {
         
         let chatIds = OrderedSet(messageList!)
         
-        self.searchResultIds = chatIds
-        
-        self.updateChats()
-        
-        if foundMessages {
-            self.scrollProxy?.scrollTo("top", anchor: .top)
+        DispatchQueue.main.async { [foundMessages] in
+            self.searchResultIds = chatIds
+            
+            self.updateChats()
+            
+            if foundMessages {
+                self.scrollProxy?.scrollTo("top", anchor: .top)
+            }
         }
-        
-        
-        return
     }
 
 }

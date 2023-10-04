@@ -106,16 +106,16 @@ extension URL {
     
     var dataType: DataType? {
         let ext = self.pathExtension
-        if let docExtension = FileType(rawValue: ext) {
+        if let _ = FileType(rawValue: ext) {
             return .doc
         }
-        else if let photoExtension = ImageFileType(rawValue: ext) {
+        else if let _ = ImageFileType(rawValue: ext) {
             return .photo
         }
-        else if let videoExtension = VideoFileType(rawValue: ext) {
+        else if let _ = VideoFileType(rawValue: ext) {
             return .video
         }
-        else if let soundExtension = AudioFileType(rawValue: ext) {
+        else if let _ = AudioFileType(rawValue: ext) {
             return .sound
         }
         
@@ -135,13 +135,13 @@ extension URL {
         if let ext = docExtension, ext != .html, ext != .php {
             isDownloadableDoc = true
         }
-        else if let ext = photoExtension {
+        else if let _ = photoExtension {
             isDownloadableDoc = true
         }
-        else if let ext = videoExtension {
+        else if let _ = videoExtension {
             isDownloadableDoc = true
         }
-        else if let ext = soundExtension {
+        else if let _ = soundExtension {
             isDownloadableDoc = true
         }
         
@@ -163,18 +163,17 @@ func download(url: URL) async throws {
         return
     }
     
-    print("downloading url to", downloadPath)
+    print("downloading url to",url.absoluteString, downloadPath)
     
     if url.isDownloadable {
         try await downloadFile(from: url, to: downloadPath)
-        print("downloaded file")
+        print("downloaded url to file", url.absoluteString, downloadPath.absoluteString)
     }
     else {
         await withCheckedContinuation { continuation in
             Task {
                 await Browser.shared.fetchHTML(from: url, completionHandler: { html in
-                    print("dumped html", html)
-                    print(html)
+                    print("dumped html to file",url.absoluteString, downloadPath.absoluteString)
                     try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
                 })
                 continuation.resume()
@@ -840,4 +839,6 @@ enum FileType: String {
     case rst
     case tex
     case sol
+    case csv
+    case tsv
 }

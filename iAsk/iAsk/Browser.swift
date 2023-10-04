@@ -146,8 +146,7 @@ class Browser: UIViewController {
             return
         }
         self.completionHandler = completionHandler
-        let request = URLRequest(url: url)
-        w.load(request)
+        browserUrl = url
     }
     
     func dumpHTML(completionHandler: @escaping (String?) -> Void) {
@@ -198,7 +197,7 @@ extension Browser: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         
         if let handler = self.snapshotHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 let configuration = WKSnapshotConfiguration()
                 configuration.rect = CGRect(origin: .zero, size: webView.scrollView.contentSize)
                 
@@ -212,7 +211,7 @@ extension Browser: WKNavigationDelegate {
             }
         }
         else if let handler = self.completionHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 webView.evaluateJavaScript("document.documentElement.outerHTML.toString()",
                                            completionHandler: { (html: Any?, error: Error?) in
                     if let htmlString = html as? String {

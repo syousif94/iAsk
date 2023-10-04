@@ -17,6 +17,8 @@ struct RecordButton: View {
     
     @State private var isPressed: Bool = false
     
+    let showSendButton: Bool
+    
     let circleRadius: CGFloat
     
     var onRecord: (() -> Void)?
@@ -41,7 +43,8 @@ struct RecordButton: View {
 
             // Icons
             if isExpanded {
-                DecibelMeterView(circleRadius: circleRadius, onPause: onPause, onSend: onSend)
+                
+                DecibelMeterView(showSendButton: showSendButton, circleRadius: circleRadius, onPause: onPause, onSend: onSend)
                     .transition(.opacity)
                     .transition(.scale)
                     .scaleEffect(isPressed ? 0.95 : 1)
@@ -107,13 +110,15 @@ struct RecordButton_Previews: PreviewProvider {
     struct RecordButton_Test: View {
         @State var isExpanded: Bool
         var body: some View {
-            return RecordButton(isExpanded: $isExpanded, circleRadius: 44)
+            return RecordButton(isExpanded: $isExpanded, showSendButton: true, circleRadius: 44)
         }
     }
 }
 
 struct DecibelMeterView: View {
     @EnvironmentObject var chat: ChatViewModel
+    
+    let showSendButton: Bool
 
     let circleRadius: CGFloat
     
@@ -145,7 +150,7 @@ struct DecibelMeterView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(height: circleRadius * 1.05, alignment: .bottom)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.black)
                                     .padding(.leading)
                                     .opacity(0.2)
                             }
@@ -160,42 +165,44 @@ struct DecibelMeterView: View {
             })
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
-
-            Button(action: {
-                onSend?()
-            }, label: {
-                VStack {
-                    Image(systemName: "play.fill")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: circleRadius * 1.05)
-                        .padding(.trailing)
-                        .foregroundColor(.green)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay {
+            
+            if showSendButton {
+                Button(action: {
+                    onSend?()
+                }, label: {
                     VStack {
-                        HStack(alignment: .bottom) {
-                            HStack(alignment: .bottom) {
-                                Image(systemName: "play.fill")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(height: circleRadius * 1.05, alignment: .bottom)
-                                    .foregroundColor(.white)
-                                    .padding(.trailing)
-                                    .opacity(0.2)
-                            }
-                            .frame(height: height, alignment: .bottom)
-                            .clipped()
-                        }
-                        .frame(height: circleRadius * 1.05, alignment: .bottom)
-                        .clipped()
+                        Image(systemName: "play.fill")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: circleRadius * 1.05)
+                            .padding(.trailing)
+                            .foregroundColor(.green)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            })
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.clear)
+                    .overlay {
+                        VStack {
+                            HStack(alignment: .bottom) {
+                                HStack(alignment: .bottom) {
+                                    Image(systemName: "play.fill")
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(height: circleRadius * 1.05, alignment: .bottom)
+                                        .foregroundColor(.black)
+                                        .padding(.trailing)
+                                        .opacity(0.2)
+                                }
+                                .frame(height: height, alignment: .bottom)
+                                .clipped()
+                            }
+                            .frame(height: circleRadius * 1.05, alignment: .bottom)
+                            .clipped()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onReceive(chat.$decibles, perform: { newValue in

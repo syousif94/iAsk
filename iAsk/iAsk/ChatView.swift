@@ -53,7 +53,7 @@ struct QuestionInput: View {
     
     @EnvironmentObject var chat: ChatViewModel
     
-    @State var isAnswering = false
+    @Binding var isAnswering: Bool
     
     var body: some View {
         let isEmptySpeech = transcript.isEmpty
@@ -68,11 +68,6 @@ struct QuestionInput: View {
             .focused($isFocused)
             .overlay(alignment: .topTrailing) {
                 AnsweringView(isAnimating: $isAnswering)
-                    .onChange(of: chat.isAnswering) { newValue in
-                        if let id = messageId {
-                            isAnswering = newValue.contains(id)
-                        }
-                    }
                     .padding()
             }
             .onReceive(Just(transcript)) { newValue in
@@ -96,9 +91,8 @@ struct QuestionInput: View {
             }
             .onChange(of: isFocused) { newValue in
                 if newValue {
-                    chat.lastEdited = messageId
                     DispatchQueue.main.async {
-                        stopListeningNotification.send(())
+                        chat.lastEdited = messageId
                     }
                 }
             }
@@ -137,10 +131,10 @@ struct ChatView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             
                             ForEach(chat.messages, id: \.record.id) { message in
-                                MessageView(message: message)
+                                MessageView(message: message, answering: message.answering)
                             }
                             
-                            QuestionInput(transcript: $chat.transcript, isFocused: _isFocused)
+                            QuestionInput(transcript: $chat.transcript, isFocused: _isFocused, isAnswering: .constant(false))
                                 .onAppear {
                                     if Application.isCatalyst {
                                         isFocused = true
@@ -202,25 +196,25 @@ struct ChatView: View {
                 
                 VStack {
                     Spacer()
-                    RecordButton(isExpanded: $chat.isRecording, circleRadius: 32, onRecord: {
-                        if !chat.isRecording {
-                            withAnimation {
-                                chat.transcribe()
+                        RecordButton(isExpanded: $chat.isRecording, showSendButton: true, circleRadius: 32, onRecord: {
+                            if !chat.isRecording {
+                                withAnimation {
+                                    chat.transcribe()
+                                }
                             }
-                        }
-                    }, onPause: {
-                        if chat.isRecording {
-                            withAnimation {
-                                chat.stopTranscribing()
+                        }, onPause: {
+                            if chat.isRecording {
+                                withAnimation {
+                                    chat.stopTranscribing()
+                                }
                             }
-                        }
-                    }, onSend: {
-                        if chat.isRecording {
-                            withAnimation {
-                                chat.streamResponse()
+                        }, onSend: {
+                            if chat.isRecording {
+                                withAnimation {
+                                    chat.streamResponse()
+                                }
                             }
-                        }
-                    })
+                        })
                         
                 }
                 .padding(.bottom, geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
@@ -292,9 +286,9 @@ struct ChatView: View {
                 ZStack(alignment: .topTrailing) {
                     VStack(alignment: .leading, spacing: 0) {
                         GeometryReader { geometry in
-                            CodeEditor(source: chat.presentedText, language: CodeEditor.Language(rawValue: chat.codeLanguage), theme: CodeEditor.ThemeName(rawValue: "xcode"))
+                            CodeEditor(source: chat.presentedText, language: CodeEditor.Language(rawValue: chat.codeLanguage), theme: colorScheme == .dark ? CodeEditor.ThemeName(rawValue: "monokai") : CodeEditor.ThemeName(rawValue: "xcode"))
                                 .frame(width: geometry.size.width, height: geometry.size.height)
-                                
+                            
                         }
                     }
                     .padding(.top, 30)
@@ -312,6 +306,9 @@ struct ChatView: View {
                     VStack {
                         Spacer()
                         HStack {
+                            Button("Select All") {
+                            }
+                            .padding()
                             Spacer()
                             Button("Copy") {
                             }
@@ -323,7 +320,7 @@ struct ChatView: View {
                     }
                     
 
-                }
+                }.background(Color(hex: colorScheme == .dark ? "#272822" : "#ffffff", alpha: 1))
             })
             
         }
@@ -356,25 +353,14 @@ struct InputBar: View {
             .padding(4)
             .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
             
-            Button(action: {
-                if !chat.isRecording {
-                    UIApplication.shared.endEditing()
-                    withAnimation {
-                        chat.transcribe()
-                    }
+            InputMicButton()
+                .background {
+                    Circle()
+                        .fill(bg)
+                        .padding(4)
                 }
-            }) {
-                Image(systemName: "mic.fill")
-                                .font(.system(size: 24))
-                                .padding()
-            }
-            .background {
-                Circle()
-                    .fill(bg)
-                    .padding(4)
-            }
-            .padding(4)
-            .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
+                .opacity(keyboardObserver.isKeyboardVisible ? 1 : 0)
+                .padding(4)
             
             Spacer()
             
@@ -398,6 +384,91 @@ struct InputBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
+    }
+}
+
+struct InputMicButton: View {
+    @State var micHeight: CGFloat = 0
+    @State var pauseHeight: CGFloat = 0
+    @State var height: CGFloat = 0
+    
+    @EnvironmentObject var chat: ChatViewModel
+    
+    var body: some View {
+        Button(action: {
+            if !chat.isRecording {
+                withAnimation {
+                    chat.transcribe()
+                }
+            }
+            else {
+                withAnimation {
+                    chat.stopTranscribing()
+                }
+            }
+        }) {
+            ZStack {
+                Image(systemName: "mic.fill")
+                    .tint(chat.proMode ? .orange : .blue)
+                    .font(.system(size: 24))
+                    .padding()
+                    .opacity(chat.isRecording ? 0 : 1)
+                if chat.isRecording {
+                    VStack {
+                        Image(systemName: "pause.fill")
+                            .font(.system(size: 27))
+                            .foregroundColor(.orange)
+                            .background(
+                                GeometryReader { geometry in
+                                    Color.clear
+                                        .onAppear {
+                                            print("pause height", geometry.size.height)
+                                            micHeight = geometry.size.height
+                                        }
+                                }
+                            )
+                    }
+                    .frame(height: micHeight, alignment: .bottom)
+                    .overlay {
+                        VStack {
+                            HStack(alignment: .bottom) {
+                                HStack(alignment: .bottom) {
+                                    Image(systemName: "pause.fill")
+                                        .font(.system(size: 27))
+                                        .foregroundColor(.black)
+                                        .opacity(0.2)
+                                }
+                                .frame(height: height, alignment: .bottom)
+                                .clipped()
+                            }
+                            .frame(height: micHeight, alignment: .bottom)
+                            .clipped()
+                        }
+                        .frame(height: micHeight, alignment: .bottom)
+                    }
+                }
+            }
+            
+        }
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        print("mic height", geometry.size.height)
+                        micHeight = geometry.size.height
+                    }
+            }
+        )
+        .onReceive(chat.$decibles, perform: { newValue in
+            self.height = max(0, computeHeight(decibles: newValue, radius: micHeight))
+        })
+    }
+    
+    // Compute height based on dBValue
+    func computeHeight(decibles: CGFloat, radius: CGFloat) -> CGFloat {
+        let normalizedValue = (decibles + 160) / 160
+        let expo = pow(normalizedValue, 2)
+        return expo * radius
     }
 }
 
@@ -471,15 +542,70 @@ struct MessageView: View {
     
     @Environment(\.colorScheme) var colorScheme
 
-//    @State private var showCode = false
-//    @State private var selectedCode = ""
-//    @State private var selectedLanguage = ""
-    
-//    @EnvironmentObject var alerts: AlertViewModel
     @EnvironmentObject var chat: ChatViewModel
+    
+    @State var showFunctionLog = false
+    
+    @State var functionType: FunctionCall?
+    
+    @State var answering: Bool
     
     var isPad: Bool {
         return UIDevice.current.userInterfaceIdiom == .pad || Application.isCatalyst
+    }
+    
+    var markdownView: some View {
+        Markdown(message.content)
+            .padding()
+            .frame(alignment: .topLeading)
+            .multilineTextAlignment(.leading)
+            .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
+            .markdownBlockStyle(\.paragraph, body: { configuration in
+                VStack {
+                    configuration.label
+                        .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
+                        
+                }
+            })
+            .markdownBlockStyle(\.codeBlock, body: { configuration in
+                MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
+            })
+            
+            .simultaneousGesture(TapGesture().onEnded({
+                UIApplication.shared.endEditing()
+            }))
+            .contextMenu {
+                Button("Copy", role: .none) {
+
+                }
+            }
+    }
+    
+    var logView: some View {
+        Markdown(message.functionLog)
+            .padding()
+            .frame(alignment: .topLeading)
+            .multilineTextAlignment(.leading)
+            .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
+            .markdownBlockStyle(\.paragraph, body: { configuration in
+                VStack {
+                    configuration.label
+                        .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
+                        
+                }
+            })
+            .markdownBlockStyle(\.codeBlock, body: { configuration in
+                MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
+            })
+            
+            .simultaneousGesture(TapGesture().onEnded({
+                UIApplication.shared.endEditing()
+            }))
+            .contextMenu {
+                Button("Copy", role: .none) {
+
+                }
+            }
     }
     
     var body: some View {
@@ -491,44 +617,42 @@ struct MessageView: View {
             }
             
             if message.record.role == .user && message.record.messageType == .text {
-                UserMessageView(messageId: message.record.id, transcript: $message.content, isFocused: _isFocused)
+                UserMessageView(messageId: message.record.id, transcript: $message.content, answering: $message.answering, isFocused: _isFocused)
             }
             
             if message.record.role == .assistant {
-                Markdown(message.content)
-//                    .textSelection(.enabled)
-                    .padding()
-                    .frame(alignment: .topLeading)
-                    .multilineTextAlignment(.leading)
-                    .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
-                    .markdownBlockStyle(\.paragraph, body: { configuration in
-                        VStack {
-                            configuration.label
-                                .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
-                                
+                Group {
+                    if functionType != nil {
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                logView
+                                    .id("log")
+                            }
+                            .background(Color(hex: "#000000", alpha: 0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(maxWidth: .infinity, maxHeight: 120)
+                            .padding(.horizontal)
+                            .padding(.top)
+                            .onChange(of: message.functionLog) { newValue in
+                                proxy.scrollTo("log", anchor: .bottom)
+                            }
                         }
                         
-
-                    })
-                    .markdownBlockStyle(\.codeBlock, body: { configuration in
-                        MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
-                    })
-                    .onChange(of: chat.isPresentingText, perform: { newValue in
-                        print("show code changed in parent", newValue)
-                        chat.isPresentingText = newValue
-                    })
-                    .simultaneousGesture(TapGesture().onEnded({
-                        UIApplication.shared.endEditing()
-                    }))
-                    .contextMenu {
-                        Button("Copy", role: .none) {
-
-                        }
                     }
+                    markdownView
+                }
+                .onChange(of: message.answering, perform: { newValue in
+                    print("answering changed", newValue)
+                    self.answering = newValue
+                })
+                .onChange(of: message.functionType, perform: { newValue in
+                    print("function type changed", newValue)
+                    self.functionType = newValue
+                })
+                
+                
             }
         }
-        
-    
 }
 
 struct MarkdownCodeView: View {
@@ -560,6 +684,11 @@ struct MarkdownCodeView: View {
     }
     
     var body: some View {
+        innerView
+    }
+    
+    var innerView: some View {
+
         VStack(alignment: .leading) {
             ScrollView(.horizontal, showsIndicators: false) {
                 if isPad {
@@ -625,8 +754,26 @@ struct MarkdownCodeView: View {
                 }
             }
         }
+        
         .padding(.top)
         .padding(.bottom)
+    }
+
+}
+
+struct FunctionCodeView: View {
+    var body: some View {
+        HStack {
+            Text("Working")
+                .foregroundStyle(.white)
+                .padding()
+            ProgressView()
+                .controlSize(.small)
+                .padding()
+        }
+        .background(.green)
+        .cornerRadius(12)
+        .clipped()
     }
 }
 
@@ -658,16 +805,18 @@ struct DataMessageView: View {
 struct UserMessageView: View {
     var messageId: String
     @Binding var transcript: String
+    @Binding var answering: Bool
     @FocusState var isFocused: Bool
 
     var body: some View {
-        QuestionInput(messageId: messageId, transcript: $transcript, isFocused: _isFocused)
+        QuestionInput(messageId: messageId, transcript: $transcript, isFocused: _isFocused, isAnswering: $answering)
     }
 }
 
-struct PreviewImage: View {
+struct AttachmentPreview: View {
     let message: Message
     @Binding var attachment: Attachment
+    @Binding var sideLength: CGFloat
     @State var generating = false
 
     var body: some View {
@@ -676,12 +825,20 @@ struct PreviewImage: View {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
+                    .frame(width: sideLength, height: sideLength * 1.2)
+                    .clipped()
+            }
+            else if let url = attachment.url, let text = extractText(url: url) {
+                Text(text)
+                    .font(
+                        .system(size: 5)
+                    )
+                    .frame(width: sideLength, height: sideLength * 1.2)
                     .clipped()
             }
             if generating {
                 ProgressView()
-                    .frame(width: 60, height: 60)
+                    .frame(width: sideLength, height: sideLength * 1.2)
             }
         }
         .onReceive(attachment.$generatingPreview) { newValue in
@@ -694,6 +851,8 @@ struct AttachmentView: View {
     let message: Message
     @Binding var attachment: Attachment
     @State var status = ""
+    
+    @State var sideLength: CGFloat = 140
 
     init(message: Message, attachment: Binding<Attachment>) {
         self.message = message
@@ -701,36 +860,66 @@ struct AttachmentView: View {
     }
     
     var innerBody: some View {
-        HStack(spacing: 0) {
-            PreviewImage(message: message, attachment: $attachment)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(attachment.dataRecord.name)
+        ZStack {
+            AttachmentPreview(message: message, attachment: $attachment, sideLength: $sideLength)
+            
+            VStack(alignment: .leading) {
+                Spacer()
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer()
+                    if !status.isEmpty {
+                        HStack {
+                            Text(status)
+                                .font(
+                                    .caption
+                                )
+                                .fontWeight(.bold)
+                                .foregroundStyle(.white)
+                                .padding(.top, 2)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    HStack {
+                        Text(attachment.dataRecord.name)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .padding(.bottom, 4)
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(3)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity)
                     
-                if !status.isEmpty {
-                    Text(status)
-                        .font(
-                            .caption
-                        )
-                        .fontWeight(.bold)
-                        .foregroundStyle(.gray)
-                        .padding(.top, 2)
                 }
-                
+                .padding(.horizontal, 4)
+                .frame(width: sideLength, height: sideLength * 0.75)
+                .background(
+                    LinearGradient(gradient: Gradient(colors: [Color(hex: "#000000", alpha: 0), Color(hex: "#000000", alpha: 0.7)]), startPoint: .top, endPoint: .bottom)
+                )
+                .onReceive(attachment.$status) { newValue in
+                    self.status = newValue
+                }
             }
-            .frame(minHeight: 60)
-            .padding(.horizontal)
-            .onReceive(attachment.$status) { newValue in
-                self.status = newValue
-            }
+            .frame(width: sideLength, height: sideLength * 1.2)
+            
         }
+        .frame(width: sideLength)
         .clipped()
         .background(Color(hex: "#000000", alpha: 0.1))
         .cornerRadius(12)
         .contextMenu {
             Button {
+                attachment.open()
+            } label: {
+                Label("Open", systemImage: "square.and.arrow.down")
+            }
+            Button {
                 attachment.saveDialog()
             } label: {
-                Label("Save", systemImage: "square.and.arrow.down")
+                Label("Save to File", systemImage: "square.and.arrow.down")
             }
             Button {
                 attachment.shareDialog()
@@ -738,9 +927,11 @@ struct AttachmentView: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
             Button {
-                message.detach(attachment: attachment)
+                Task {
+                    await message.detach(attachment: attachment)
+                }
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("Remove", systemImage: "trash")
             }
             Button {
                 
@@ -758,9 +949,6 @@ struct AttachmentView: View {
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
-        }
-        .onTapGesture {
-            attachment.open()
         }
         .onDrag {
             guard let url = attachment.url, let provider = NSItemProvider(contentsOf: url) else {

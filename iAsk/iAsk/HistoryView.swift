@@ -257,7 +257,7 @@ struct HistoryListText: View {
             )
                 .fontWeight(message.record.role == .user ? .bold : .regular)
                 .font(message.record.role == .user ? nil : Font.system(size: 12))
-                .lineLimit(message.record.role == .user ? nil : 2)
+                .lineLimit(5)
                 .padding(.horizontal)
                 .padding(.bottom)
                 .multilineTextAlignment(.leading)

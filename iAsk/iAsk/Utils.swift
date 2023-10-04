@@ -112,6 +112,17 @@ struct Application {
         false
     #endif
     }()
+    
+    static var keyWindow: UIWindow? {
+      let allScenes = UIApplication.shared.connectedScenes
+      for scene in allScenes {
+        guard let windowScene = scene as? UIWindowScene else { continue }
+        for window in windowScene.windows where window.isKeyWindow {
+           return window
+         }
+       }
+        return nil
+    }
 
 }
 
@@ -206,5 +217,11 @@ extension String {
             return url
         }
         return nil
+    }
+}
+
+func showAlert(alert: UIAlertController) {
+    if let rootController = Application.keyWindow?.rootViewController {
+        rootController.present(alert, animated: true, completion: nil)
     }
 }

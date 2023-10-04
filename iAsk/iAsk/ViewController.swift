@@ -396,24 +396,29 @@ extension ViewController: UIDropInteractionDelegate {
                                         }
                                         
                                         let fileManager = FileManager.default
-                                        let cacheDirectory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
-                                        let tempURL = cacheDirectory.appending(component: url.lastPathComponent)
+                                        if let newPath = Path.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                                            
+                                            do {
+                                            
+                                                try? fileManager.removeItem(at: newPath)
+                                                try fileManager.copyItem(at: url, to: newPath)
+                                            
+                                            }
+                                            catch {
+                                                print(error)
+                                                continuation.resume(throwing: error)
+                                                return
+                                            }
+                                            
                                         
-                                        do {
-                                            try? fileManager.removeItem(at: tempURL)
-                                            try fileManager.copyItem(at: url, to: tempURL)
+                                            if let error = error {
+                                                continuation.resume(throwing: error)
+                                            } else {
+                                                continuation.resume(returning: newPath)
+                                            }
                                         }
-                                        catch {
-                                            print(error)
-                                            continuation.resume(throwing: error)
-                                            return
-                                        }
-                                        
-                                        
-                                        if let error = error {
-                                            continuation.resume(throwing: error)
-                                        } else {
-                                            continuation.resume(returning: tempURL)
+                                        else {
+                                            continuation.resume(throwing: GenericError.error("Failed to generate import path"))
                                         }
                                     }
                                 }

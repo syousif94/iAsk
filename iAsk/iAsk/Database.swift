@@ -97,6 +97,7 @@ struct MessageRecord: BlackbirdModel, Codable {
     
     @BlackbirdColumn var functionCallName: String?
     @BlackbirdColumn var functionCallArgs: String?
+    @BlackbirdColumn var functionLog: String?
     
     var isFunctionCall: Bool {
         return role == .assistant && functionCallName != nil && !functionCallName!.isEmpty

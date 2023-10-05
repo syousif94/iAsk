@@ -21,10 +21,25 @@ extension ConvertMediaArgs.ItemArgs {
         let url: URL
     }
     
-    var ffmpegConfig: FFmpegConfig? {
-        guard let file = self.inputFilePath, let url = URL(string: file) else {
+    func toFFmpegConfig(for attachments: [Attachment]? = nil) -> FFmpegConfig? {
+        
+        // this is potentially truncated to just the file name
+        
+        guard var filePath = self.inputFilePath else {
             return nil
         }
+        
+        if let attachments = attachments,
+           let attachment = attachments.first { a in
+            a.dataRecord.name == filePath
+        } {
+            filePath = attachment.dataRecord.path
+        }
+        
+        guard let url = URL(string: filePath) else {
+            return nil
+        }
+        
         let urlWithoutExtension = url.deletingPathExtension()
         var outputExtension = self.outputExtension
         

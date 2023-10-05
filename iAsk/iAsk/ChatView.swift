@@ -554,7 +554,8 @@ struct MessageView: View {
     
     var markdownView: some View {
         Markdown(message.content)
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom)
             .frame(alignment: .topLeading)
             .multilineTextAlignment(.leading)
             .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
@@ -623,7 +624,7 @@ struct MessageView: View {
             if message.record.role == .assistant {
                 Group {
                     if functionType != nil {
-                        Group {
+                        VStack(alignment: .leading, spacing: 0) {
                             HStack {
                                 Text(functionType!.rawValue)
                                     .font(.caption)

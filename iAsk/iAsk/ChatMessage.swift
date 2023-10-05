@@ -45,9 +45,9 @@ class Message: ObservableObject {
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { attachment in
                 if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
-                    return "file_path: \(path.absoluteString)"
+                    return "file_path: \(path.lastPathComponent)"
                 }
-                return "file_path: \(attachment.dataRecord.path)"
+                return "file_path: \(attachment.dataRecord.name)"
             }.joined(separator: "\n")
             if record.role == .function {
                 return .init(role: record.role, content: contentFromAttachments, name: record.functionCallName)

@@ -637,7 +637,7 @@ class ChatViewModel: ObservableObject {
                             
                             await withThrowingTaskGroup(of: Void.self) { group in
                                 for args in args.items {
-                                    let config = args.ffmpegConfig
+                                    let config = args.toFFmpegConfig(for: self.latestAttachments)
                                     if let config = config {
                                         DispatchQueue.main.async {
                                             aiMessage.functionLog += """
@@ -745,7 +745,14 @@ class ChatViewModel: ObservableObject {
                 case .summarizeDocuments:
                     do {
                         let args = try call.toArgs(SummarizeDocumentsArgs.self)
-                        let urls = args.files.compactMap { URL(string: $0) }
+                        let urls = args.files.compactMap { filePath -> URL? in
+                            if let attachment = self.latestAttachments.first(where: { a in
+                                a.dataRecord.name == filePath
+                            }) {
+                                return attachment.url
+                            }
+                            return URL(string: filePath)
+                        }
                         guard urls.count > 0 else {
                             print("No valid files to summarize")
                             return
@@ -812,7 +819,17 @@ class ChatViewModel: ObservableObject {
                         let functionMessage = Message(record: functionMessageRecord)
                         
                         Task { [lastUserMessage] in
-                            let text = await readFiles(urls: files.compactMap { URL(string: $0) }) {
+                            
+                            let urls = files.compactMap { filePath -> URL? in
+                                if let attachment = self.latestAttachments.first(where: { a in
+                                    a.dataRecord.name == filePath
+                                }) {
+                                    return attachment.url
+                                }
+                                return URL(string: filePath)
+                            }
+                            
+                            let text = await readFiles(urls: urls) {
                                 return await getTerms(for: self)
                             }
                             

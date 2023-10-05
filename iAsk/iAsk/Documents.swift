@@ -27,7 +27,7 @@ enum DataType: String, Codable, BlackbirdStringEnum {
     case unknown = "unknown"
 }
 
-enum Path {
+enum Disk {
     case cache
     case documents
     case support
@@ -154,7 +154,7 @@ func getDownloadURL(for url: URL) -> URL? {
     if ext.isEmpty {
         ext = "html"
     }
-    return Path.cache.getPath(for: "iAsk/downloads/\(url.hash).\(ext)")
+    return Disk.cache.getPath(for: "iAsk/downloads/\(url.hash).\(ext)")
 }
 
 func download(url: URL) async throws {
@@ -354,7 +354,7 @@ func getOpenAIEmbedding(text: String) async throws -> EmbeddingsResult.Embedding
 }
 
 func getEmbeddingURL(for url: URL) -> URL? {
-    return Path.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)")
+    return Disk.support.getPath(for: "com.syousif.iAsk/embeddings/\(url.hash)")
 }
 
 struct ScoredEmbedding {

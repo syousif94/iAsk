@@ -131,7 +131,7 @@ struct ChatView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             
                             ForEach(chat.messages, id: \.record.id) { message in
-                                MessageView(message: message, answering: message.answering)
+                                MessageView(message: message, functionType: message.functionType, answering: message.answering)
                             }
                             
                             QuestionInput(transcript: $chat.transcript, isFocused: _isFocused, isAnswering: .constant(false))
@@ -544,8 +544,6 @@ struct MessageView: View {
 
     @EnvironmentObject var chat: ChatViewModel
     
-    @State var showFunctionLog = false
-    
     @State var functionType: FunctionCall?
     
     @State var answering: Bool
@@ -569,6 +567,8 @@ struct MessageView: View {
             })
             .markdownBlockStyle(\.codeBlock, body: { configuration in
                 MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
+                    .padding(.top)
+                    .padding(.bottom)
             })
             
             .simultaneousGesture(TapGesture().onEnded({
@@ -623,21 +623,33 @@ struct MessageView: View {
             if message.record.role == .assistant {
                 Group {
                     if functionType != nil {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                logView
-                                    .id("log")
+                        Group {
+                            HStack {
+                                Text(functionType!.rawValue)
+                                    .font(.caption)
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 4)
+                                Spacer()
                             }
-                            .background(Color(hex: "#000000", alpha: 0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .frame(maxWidth: .infinity, maxHeight: 120)
-                            .padding(.horizontal)
-                            .padding(.top)
-                            .onChange(of: message.functionLog) { newValue in
-                                proxy.scrollTo("log", anchor: .bottom)
+                            .background(Color(hex: "#000000", alpha: 0.3))
+                            .clipShape(RoundedCornersShape(corners: [.topLeft, .topRight], radius: 8))
+                            ScrollViewReader { proxy in
+                                ScrollView {
+                                    logView
+                                        .id("log")
+                                }
+                                .background(Color(hex: "#000000", alpha: 0.1))
+                                .clipShape(RoundedCornersShape(corners: [.bottomLeft, .bottomRight], radius: 8))
+                                .frame(maxWidth: .infinity, maxHeight: 90)
+                                .onChange(of: message.functionLog) { newValue in
+                                    proxy.scrollTo("log", anchor: .bottom)
+                                }
+                                .onAppear {
+                                    proxy.scrollTo("log", anchor: .bottom)
+                                }
                             }
                         }
-                        
+                        .padding(.horizontal)
                     }
                     markdownView
                 }
@@ -755,8 +767,7 @@ struct MarkdownCodeView: View {
             }
         }
         
-        .padding(.top)
-        .padding(.bottom)
+        
     }
 
 }

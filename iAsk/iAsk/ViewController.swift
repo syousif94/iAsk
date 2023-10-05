@@ -396,7 +396,7 @@ extension ViewController: UIDropInteractionDelegate {
                                         }
                                         
                                         let fileManager = FileManager.default
-                                        if let newPath = Path.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                                        if let newPath = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
                                             
                                             do {
                                             

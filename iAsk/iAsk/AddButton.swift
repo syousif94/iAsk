@@ -32,17 +32,11 @@ struct AddButton<Content: View>: View {
     
     var body: some View {
         Menu() {
+            
             Button(action: {
-                chat.menuShown = false
-                Task {
-                    await chat.resetChat()
-                    DispatchQueue.main.async {
-                        self.chat.scrollProxy?.scrollTo("top", anchor: .top)
-                    }
-                    
-                }
+
             }) {
-                Label("New Chat", systemImage: "plus.bubble")
+                Label("Settings", systemImage: "gearshape")
             }
             
             Button(action: {
@@ -60,18 +54,20 @@ struct AddButton<Content: View>: View {
             Divider()
             
             Button(action: {
+                showWebNotification.send(true)
+                chat.menuShown = false
+            }) {
+                Label("Browser", systemImage: "safari")
+            }
+            
+            Button(action: {
                 showCameraNotification.send(true)
                 chat.menuShown = false
             }) {
                 Label("Camera", systemImage: "camera")
             }
             
-            Button(action: {
-                showDocumentsNotification.send(true)
-                chat.menuShown = false
-            }) {
-                Label("Documents", systemImage: "doc.on.doc")
-            }
+            
             
             Button(action: {
                 showPhotoPickerNotification.send(true)
@@ -81,11 +77,12 @@ struct AddButton<Content: View>: View {
             }
             
             Button(action: {
-                showWebNotification.send(true)
+                showDocumentsNotification.send(true)
                 chat.menuShown = false
             }) {
-                Label("Browser", systemImage: "safari")
+                Label("Documents", systemImage: "doc.on.doc")
             }
+            
             
 //                            Button(action: {
 //                                startGoogleSignInNotification.send(())
@@ -101,10 +98,19 @@ struct AddButton<Content: View>: View {
             }
             
             Button(action: {
-
+                chat.menuShown = false
+                Task {
+                    await chat.resetChat()
+                    DispatchQueue.main.async {
+                        self.chat.scrollProxy?.scrollTo("top", anchor: .top)
+                    }
+                    
+                }
             }) {
-                Label("Settings", systemImage: "gearshape")
+                Label("New Chat", systemImage: "plus.bubble")
             }
+            
+            
             
         } label: {
             label

@@ -212,7 +212,7 @@ extension String {
     func toCache(ext: String = "md") throws -> URL? {
         let gen = ID(size: 8)
         let id = gen.generate()
-        if let url = Path.cache.getPath(for: "exports/\(id)/export.\(ext)") {
+        if let url = Disk.cache.getPath(for: "exports/\(id)/export.\(ext)") {
             try write(to: url, atomically: true, encoding: .utf8)
             return url
         }
@@ -224,4 +224,15 @@ func showAlert(alert: UIAlertController) {
     if let rootController = Application.keyWindow?.rootViewController {
         rootController.present(alert, animated: true, completion: nil)
     }
+}
+
+struct RoundedCornersShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var bPath = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        var path = Path(bPath.cgPath)
+        return path
+    }
+    
+    var corners: UIRectCorner
+    var radius: CGFloat
 }

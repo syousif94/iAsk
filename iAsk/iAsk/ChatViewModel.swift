@@ -190,7 +190,7 @@ class ChatViewModel: ObservableObject {
     }
     
     func shareDialog() {
-        guard let url = Path.cache.getPath(for: "exports/\(id).md") else {
+        guard let url = Disk.cache.getPath(for: "exports/\(id).md") else {
             return
         }
         let contentArr = messages.compactMap { $0.md }
@@ -207,7 +207,7 @@ class ChatViewModel: ObservableObject {
     }
     
     func saveDialog() {
-        guard let url = Path.cache.getPath(for: "exports/\(id).md") else {
+        guard let url = Disk.cache.getPath(for: "exports/\(id).md") else {
             return
         }
         let contentArr = messages.compactMap { $0.md }
@@ -547,35 +547,9 @@ class ChatViewModel: ObservableObject {
                         }
                         
                         if !call.nameCompleted, let function = FunctionCall(rawValue: call.name) {
+                            
                             call.nameCompleted = true
-                            switch function {
-                            case .getUserLocation:
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Getting location"
-                                }
-                            case .search:
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Searching"
-                                }
-                            case .convertMedia:
-                                DispatchQueue.main.async {
-                                    aiMessage.functionLog = "Converting"
-                                }
-                            case .python:
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Generating Python Script"
-                                }
-                            case .summarizeDocuments:
-                                DispatchQueue.main.async {
-                                    aiMessage.functionLog = "Summarizing"
-                                }
-                            case .readFiles:
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Reading Files"
-                                }
-                            default:
-                                break
-                            }
+                            
                             DispatchQueue.main.async {
                                 aiMessage.functionType = function
                                 aiMessage.functionLog += """
@@ -584,6 +558,7 @@ class ChatViewModel: ObservableObject {
                                 
                                 """
                             }
+                            
                         }
                     }
                 }
@@ -711,7 +686,10 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(SearchArgs.self)
                         print(args)
                         DispatchQueue.main.async {
-                            aiMessage.content = "Searching: \(args.query)"
+                            aiMessage.functionLog += "\nSearching: \(args.query)"
+                            
+                            
+                            
                             self.endGenerating(userMessage: lastUserMessage)
                             Task {
                                 await aiMessage.save()
@@ -846,7 +824,11 @@ class ChatViewModel: ObservableObject {
                             
                             self.endGenerating(userMessage: lastUserMessage)
                             
+                            async let saveAiMessage = aiMessage.save()
+                            
                             async let saveFunctionMessage = functionMessage.save()
+                            
+                            await saveAiMessage
                             
                             await saveFunctionMessage
                             

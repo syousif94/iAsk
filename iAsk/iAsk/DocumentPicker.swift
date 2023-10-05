@@ -72,7 +72,7 @@ class DocumentPickerPresenter: NSObject, UIDocumentPickerDelegate {
         var movedURLs = [URL]()
         
         for url in urls {
-            if let newPath = Path.support.getPath(for: "imports/\(url.lastPathComponent)") {
+            if let newPath = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
                 moveFile(from: url, to: newPath)
                 movedURLs.append(newPath)
             }

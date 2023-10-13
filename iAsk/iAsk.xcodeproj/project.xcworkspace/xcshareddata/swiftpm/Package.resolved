@@ -212,8 +212,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dkk/WrappingHStack",
       "state" : {
-        "revision" : "f31b8fdc57759c5aa5fc98c70746db5556e73300",
-        "version" : "2.2.10"
+        "revision" : "425d9488ba55f58f0b34498c64c054c77fc2a44b",
+        "version" : "2.2.11"
       }
     },
     {

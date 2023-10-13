@@ -122,6 +122,12 @@ struct MessageRecord: BlackbirdModel, Codable {
     enum MessageType: String, Codable, BlackbirdStringEnum {
         case text = "text"
         case data = "data"
+        
+        // present buttons to user
+        case select = "select"
+        
+        // present message to user
+        case message = "msg"
     }
 }
 

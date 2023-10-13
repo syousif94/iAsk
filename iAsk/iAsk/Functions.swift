@@ -51,6 +51,8 @@ enum FunctionCall: String, Codable {
     case readFiles = "read_files"
     case sms = "sms"
     case call = "call"
+    case createCalendarEvent = "create_calendar_event"
+    case getCalendar = "get_calendar"
 }
 
 struct WriteFilesArgs: Codable {
@@ -109,6 +111,20 @@ struct SummarizeDocumentsArgs: Codable {
     let files: [String];
 }
 
+struct GetCalendarArgs: Codable {
+
+}
+
+struct CreateCalendarEventArgs: Codable {
+    let title: String
+    let location: String?
+    let startDate: String
+    let endDate: String
+    let allDay: Bool
+    let notes: String?
+    let url: String?
+}
+
 func getFunctions() -> [ChatFunctionDeclaration] {
     let functions = [
       ChatFunctionDeclaration(
@@ -136,30 +152,30 @@ func getFunctions() -> [ChatFunctionDeclaration] {
 //              required: ["queries", "files"]
 //            )
 //      ),
-      ChatFunctionDeclaration(
-          name: "index_documents",
-          description: "Create a semantic index for documents that can be used to answer user questions",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "files": .init(type: .array, description: "A list of file paths to index", items: JSONSchema.Items(type: .string))
-              ],
-              required: ["files"]
-            )
-      ),
-      ChatFunctionDeclaration(
-          name: "summarize_documents",
-          description: "Summarize or extract data from a collection of documents",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "files": .init(type: .array, description: "A list of file paths to summarize", items: JSONSchema.Items(type: .string))
-              ],
-              required: ["files"]
-            )
-      ),
+//      ChatFunctionDeclaration(
+//          name: "index_documents",
+//          description: "Create a semantic index for documents that can be used to answer user questions",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "files": .init(type: .array, description: "A list of file paths to index", items: JSONSchema.Items(type: .string))
+//              ],
+//              required: ["files"]
+//            )
+//      ),
+//      ChatFunctionDeclaration(
+//          name: "summarize_documents",
+//          description: "Summarize or extract data from a collection of documents",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "files": .init(type: .array, description: "A list of file paths to summarize", items: JSONSchema.Items(type: .string))
+//              ],
+//              required: ["files"]
+//            )
+//      ),
 //      ChatFunctionDeclaration(
 //          name: "python",
 //          description: "Run python code and get the output back",
@@ -187,7 +203,7 @@ func getFunctions() -> [ChatFunctionDeclaration] {
       ),
       ChatFunctionDeclaration(
           name: "sms",
-          description: "Send an sms message to a contact on behalf of the user.",
+          description: "Send an sms message to a contact on behalf of the user. Use this when the user asks you to contact someone or ask someone a question.",
           parameters:
             JSONSchema(
               type: .object,
@@ -245,9 +261,11 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               properties: [
                 "title": .init(type: .string, description: "The name of the event, e.g. Lunch or Team Meeting"),
                 "location": .init(type: .string, description: "The location of the event, e.g. Chipotle or 2801 Example St"),
-                "date": .init(type: .string, description: "The date and time of the event, e.g. Thu May 10 2023, 8:20am")
+                "startDate": .init(type: .string, description: "The start time of the event in yyyy-MM-dd HH:mm, e.g. 2010-05-20 15:30"),
+                "endDate": .init(type: .string, description: "The end time of the event in yyyy-MM-dd HH:mm, e.g. 2010-05-20 16:30"),
+                "allDay": .init(type: .boolean, description: "Does the event last all day?")
               ],
-              required: ["title", "date"]
+              required: ["title", "startDate", "endDate", "allDay"]
             )
       ),
       ChatFunctionDeclaration(

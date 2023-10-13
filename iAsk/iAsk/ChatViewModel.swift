@@ -178,6 +178,15 @@ class ChatViewModel: ObservableObject {
         // listen for document imports from the document picker
         setupDocumentImportListener()
         
+        print("initial urls", InitialURLs.shared.urls)
+        
+        if !InitialURLs.shared.urls.isEmpty {
+            Task {
+                await self.importURLs(urls: InitialURLs.shared.urls)
+            }
+        }
+        
+        
     }
     
     func createChatRecord() async {
@@ -422,12 +431,50 @@ class ChatViewModel: ObservableObject {
     
     func callChat(at lastUserMessage: Message? = nil) async {
         
-        var chatMessages: [Chat] = [
+        var chatMessages: [Chat] = proMode ? [
             .init(role: .system, content: """
-            You are a genius personal assistant. You have the following guidelines:
-            1. NEVER TRUNCATE CODE!!
+            You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), browse the web, and send text and email messages.
+            Your goal is to accomplish user requests as quickly as possible using the functions available to you.
+            
+            Please obey the following rules:
+            
+            1. Do not ask for permission before reading files or other information.
             2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
-            3. Always attempt to rewrite code in other languages. Give it your best effort.
+            3. If you are asked to ask someone a question, respond by calling the sms function.
+            4. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
+            5. Read the text in images to find information like calendar events and contact information
+            
+            Lastly, the current date is \(Date().formatted())
+            """)
+        ] : [
+            .init(role: .user, content: """
+            You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), browse the web, and send text and email messages.
+            Your goal is to accomplish my requests as quickly as possible using the functions available to you.
+            
+            Please obey the following rules:
+            
+            1. Do not ask for permission before reading files or other information.
+            2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
+            3. If you are asked to ask someone a question, respond by calling the sms function.
+            4. Assume that I will refer to my friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
+            5. Read the text in images to find information like calendar events and contact information
+            
+            Some examples of when to call read_files:
+            
+            Example #1:
+            user: invite.heic
+            user: add this to my calendar
+            assistant (you): read_files([invite.heic])
+            
+            Example #2:
+            user: document.pdf
+            user: what is this about?
+            assistant (you): read_files([document.pdf])
+            
+            Lastly, the current date is \(Date().formatted())
+            """),
+            .init(role: .assistant, content: """
+            No problem! What can I assist you with?
             """)
         ]
         
@@ -466,7 +513,7 @@ class ChatViewModel: ObservableObject {
                 
             }
             
-            chatMessages.append(contentsOf: messages[0...messageIndex!].map { $0.ai })
+            chatMessages.append(contentsOf: messages[0...messageIndex!].compactMap { $0.ai })
             
             Task { [message] in
                 await message.save()
@@ -476,7 +523,7 @@ class ChatViewModel: ObservableObject {
             
             lastUserMessage = messages.last
             
-            chatMessages.append(contentsOf: messages.map { $0.ai })
+            chatMessages.append(contentsOf: messages.compactMap { $0.ai })
             
             let aiMessageRecord = MessageRecord(
                 chatId: self.id,
@@ -535,9 +582,11 @@ class ChatViewModel: ObservableObject {
                 else if let functionCall = result.choices[0].delta.functionCall {
                     
                     if let name = functionCall.name {
+                        print("function call chunk", name)
                         call.name += name
                     }
                     if let arguments = functionCall.arguments {
+                        print("function arg chunk", arguments)
                         call.arguments += arguments
                         
                         if call.nameCompleted {
@@ -704,18 +753,39 @@ class ChatViewModel: ObservableObject {
                     do {
                         let args = try call.toArgs(SearchContactsArgs.self)
                         print(args)
-                        DispatchQueue.main.async {
-                            aiMessage.content = "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
-                            self.endGenerating(userMessage: lastUserMessage)
+                        DispatchQueue.main.async { [lastUserMessage] in
+                            
+                            aiMessage.functionLog += "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
+
+                            Task {
+                                let choices = await ContactManager.shared.getChoices(query: args.name, contactType: args.contactType)
+                                print(choices)
+                                if choices.isEmpty {
+                                    
+                                }
+//                                else if choices.count == 1 {
+//                                    
+//                                }
+                                else {
+                                    let choicesMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .assistant, messageType: .select)
+                                    let choiceMessage = Message(record: choicesMessageRecord)
+                                    choiceMessage.choices = .contacts(choices: choices)
+                                    DispatchQueue.main.async {
+                                        self.messages.append(choiceMessage)
+                                    }
+                                }
+                                self.endGenerating(userMessage: lastUserMessage)
+                            }
+                            
                             Task {
                                 await aiMessage.save()
                             }
                         }
-                        Task {
-                            if let json = try? await Google.shared.searchContacts(query: args.name) {
-                                print(json)
-                            }
-                        }
+//                        Task {
+//                            if let json = try? await Google.shared.searchContacts(query: args.name) {
+//                                print(json)
+//                            }
+//                        }
                     } catch {
                         print("Failed to decode JSON: \(error)")
                     }
@@ -854,6 +924,27 @@ class ChatViewModel: ObservableObject {
                         }
                         
                         
+                    }
+                    catch {
+                        print("Failed to decode JSON: \(error)")
+                        self.endGenerating(userMessage: lastUserMessage)
+                    }
+                case .createCalendarEvent:
+                    do {
+                        let args = try call.toArgs(CreateCalendarEventArgs.self)
+                        
+                        if let event = Events.shared.createEvent(args: args) {
+                            print("event generated", event)
+//                            aiMessage.
+                        }
+                    }
+                    catch {
+                        print("Failed to decode JSON: \(error)")
+                        self.endGenerating(userMessage: lastUserMessage)
+                    }
+                case .getCalendar:
+                    do {
+                        let args = try call.toArgs(GetCalendarArgs.self)
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")

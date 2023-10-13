@@ -444,3 +444,65 @@ extension ViewController: UIDropInteractionDelegate {
         }
     }
 }
+
+func localizeURLs(for providers: [NSItemProvider]) async -> [URL]? {
+    let urls = try? await withThrowingTaskGroup(of: URL?.self) { group -> [URL] in
+        
+        var vals = [URL]()
+
+        for provider in providers {
+            if let fileType = provider.registeredTypeIdentifiers.first {
+                group.addTask {
+                    func loadInPlaceFileRepresentationAsync(forTypeIdentifier typeIdentifier: String) async throws -> URL? {
+                        return try await withCheckedThrowingContinuation { continuation in
+                            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
+                                guard let url = url else {
+                                    continuation.resume(throwing: GenericError.error("URL is nil"))
+                                    return
+                                }
+                                
+                                let fileManager = FileManager.default
+                                if let newPath = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                                    
+                                    do {
+                                    
+                                        try? fileManager.removeItem(at: newPath)
+                                        try fileManager.copyItem(at: url, to: newPath)
+                                    
+                                    }
+                                    catch {
+                                        print(error)
+                                        continuation.resume(throwing: error)
+                                        return
+                                    }
+                                    
+                                
+                                    if let error = error {
+                                        continuation.resume(throwing: error)
+                                    } else {
+                                        continuation.resume(returning: newPath)
+                                    }
+                                }
+                                else {
+                                    continuation.resume(throwing: GenericError.error("Failed to generate import path"))
+                                }
+                            }
+                        }
+                    }
+                    
+                    return try? await loadInPlaceFileRepresentationAsync(forTypeIdentifier: fileType)
+                }
+            }
+        }
+        
+        for try await url in group {
+            if let url = url {
+                vals.append(url)
+            }
+        }
+
+        return vals
+    }
+    
+    return urls
+}

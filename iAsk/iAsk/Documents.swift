@@ -16,6 +16,12 @@ import Blackbird
 import USearch
 import NanoID
 
+class InitialURLs {
+    static let shared = InitialURLs()
+    
+    var urls: [URL] = []
+}
+
 enum DataType: String, Codable, BlackbirdStringEnum {
     case url = "url"
     case doc = "doc"
@@ -122,6 +128,7 @@ extension URL {
         return nil
     }
     
+    // can the remote content be downloaded, ie is it not a website
     var isDownloadable: Bool {
         let ext = self.pathExtension
         
@@ -301,7 +308,10 @@ func extractText(url: URL) -> String? {
         }
     }
     else if dataType == .photo {
-        
+        let structure = try? getTextFromImage(from: url)
+        let text = structure?.orderedText
+        print("image text", text)
+        return text
     }
     
     return nil

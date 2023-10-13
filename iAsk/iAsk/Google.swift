@@ -41,38 +41,40 @@ class Google {
         
     }
     
-    func searchContacts(query: String) async throws -> Any {
-        let urlString = "https://people.googleapis.com/v1/otherContacts:search?query=\(query)&readMask=names,emailAddresses"
+    func searchContacts(query: String) async throws -> [PersonResponse] {
+        let urlString = "https://people.googleapis.com/v1/otherContacts:search?query=\(query)&readMask=names,emailAddresses,phoneNumbers"
+        
         guard let url = URL(string: urlString) else {
             throw NSError(domain: "Invalid URL", code: 0, userInfo: nil)
         }
         
         var request = URLRequest(url: url)
+        
         request.setValue("Bearer \(user?.accessToken.tokenString ?? "")", forHTTPHeaderField: "Authorization")
         
         let (data, _) = try await URLSession.shared.data(for: request)
         
         do {
             let persons = try JSONDecoder().decode([PersonResponse].self, from: data)
-            
-            // Access the decoded persons array
-            for personResponse in persons {
-                let person = personResponse.person
-                // Access the properties of the person object
-                print("Email: \(person.emailAddresses[0].value)")
-                print("Name: \(person.names[0].displayName)")
-            }
-            
+
             return persons
         } catch {
             throw error
         }
     }
-    
-    func searchEmails(query: String) async {
-        
+}
+
+extension Google.PersonResponse {
+    func toChoices(of type: ContactType) -> [ContactManager.Choice] {
+        switch type {
+        case.email:
+            return person.emailAddresses.compactMap { ContactManager.Choice(name: person.names[0].displayName, detail: $0.value) }
+        case.phone:
+            return person.phoneNumbers.compactMap { ContactManager.Choice(name: person.names[0].displayName, detail: $0.value) }
+        }
     }
 }
+
 
 extension Google {
     struct PersonResponse: Codable {
@@ -81,9 +83,15 @@ extension Google {
     
     struct Person: Codable {
         let emailAddresses: [EmailAddress]
+        let phoneNumbers: [PhoneNumber]
         let etag: String
         let names: [Name]
         let resourceName: String
+    }
+    
+    struct PhoneNumber: Codable {
+        let metadata: Metadata
+        let value: String
     }
 
     struct EmailAddress: Codable {

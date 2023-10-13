@@ -8,6 +8,7 @@
 import UIKit
 import SwiftUI
 import PhotosUI
+import NanoID
 
 let showPhotoPickerNotification = NotificationPublisher<Bool>()
 let showCameraNotification = NotificationPublisher<Bool>()
@@ -75,6 +76,20 @@ class PhotoPickerPresenter: NSObject, PHPickerViewControllerDelegate {
         }
         
         picker.dismiss(animated: true)
+
+        
+//        for image in images {
+//            let id = ID(size: 8)
+//            guard let url = Disk.support.getPath(for: "imports/\(id.generate()).png"),
+//                  let data = image.pngData()
+//                    else {
+//                        return nil
+//                    }
+//            
+//            try data.write(to: url)
+//
+//            return url
+//        }
 
     }
 

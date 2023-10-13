@@ -35,6 +35,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
         
+        var importedUrls = [URL]()
+        
+        for urlContext in connectionOptions.urlContexts {
+            let url = urlContext.url
+            
+            if let newUrl = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                url.startAccessingSecurityScopedResource()
+                copyFile(from: url, to: newUrl)
+                url.stopAccessingSecurityScopedResource()
+                importedUrls.append(newUrl)
+            }
+        }
+        
+        DispatchQueue.main.async {
+            importedDocumentNotification.send(importedUrls)
+        }
         
         window.makeKeyAndVisible()
     }
@@ -66,7 +82,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
     }
-
-
+    
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        
+        var importedUrls = [URL]()
+        
+        for urlContext in URLContexts {
+            let url = urlContext.url
+            
+            if let newUrl = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                url.startAccessingSecurityScopedResource()
+                copyFile(from: url, to: newUrl)
+                url.stopAccessingSecurityScopedResource()
+                importedUrls.append(newUrl)
+            }
+        }
+        
+        DispatchQueue.main.async {
+            importedDocumentNotification.send(importedUrls)
+        }
+        
+    }
+    
+    
 }
 

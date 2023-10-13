@@ -17,6 +17,7 @@ import Splash
 import CodeEditor
 import WrappingHStack
 import AlertToast
+import NanoID
 
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
@@ -75,16 +76,30 @@ struct QuestionInput: View {
                 let matches = detector?.matches(in: newValue, options: [], range: NSMakeRange(0, newValue.utf16.count))
 
                 var urls = [URL]()
+                var needsPasteboard = false
                 for match in matches ?? [] {
                     if let url = match.url {
-                        urls.append(url)
                         print("URL Detected: \(url)")
+                        if !url.isFileURL || fileExists(at: url) {
+                            urls.append(url)
+                        }
+                        else if !needsPasteboard {
+                            needsPasteboard = true
+                        }
                         transcript = transcript.replacingOccurrences(of: url.absoluteString, with: "")
                     }
                 }
+
                 
-                if !urls.isEmpty {
-                    Task {
+                Task {
+                    var urls = urls
+                    if needsPasteboard {
+                        let pasteboard = UIPasteboard.general
+                        if let localized = await localizeURLs(for: pasteboard.itemProviders) {
+                            urls = localized
+                        }
+                    }
+                    if !urls.isEmpty {
                         await chat.importURLs(urls: urls)
                     }
                 }
@@ -610,11 +625,18 @@ struct MessageView: View {
     }
     
     var body: some View {
+        
+        if message.record.messageType == .message {
+            EditableMessageView(message: message, messageContent: "")
+        }
+        
+        if message.record.messageType == .select {
+            ChoiceMessageView(message: message)
+        }
  
             if message.record.messageType == .data {
                 DataMessageView(attachments: $message.attachments, message: message)
                     .padding(.horizontal)
-                    .padding(.top)
             }
             
             if message.record.role == .user && message.record.messageType == .text {
@@ -623,6 +645,8 @@ struct MessageView: View {
             
             if message.record.role == .assistant {
                 Group {
+                    // the message from the ai is a function call
+                    // render the log from the function call
                     if functionType != nil {
                         VStack(alignment: .leading, spacing: 0) {
                             HStack {
@@ -666,6 +690,71 @@ struct MessageView: View {
                 
             }
         }
+}
+
+struct EditableMessageView: View {
+    
+    var message: Message
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    @State var messageContent: String
+    
+    var body: some View {
+        VStack {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Message")
+                        .font(.caption)
+                        .padding(.horizontal)
+                        .padding(.vertical, 4)
+                    Spacer()
+                }
+                .background(Color(hex: "#000000", alpha: 0.2))
+                .clipShape(RoundedCornersShape(corners: [.topLeft, .topRight], radius: 8))
+                TextField("Message", text: $messageContent)
+                    .background(Color(hex: "#000000", alpha: 0.1))
+                    .clipShape(RoundedCornersShape(corners: [.bottomLeft, .bottomRight], radius: 8))
+                    .frame(maxWidth: .infinity, maxHeight: 90)
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+
+struct ChoiceMessageView: View {
+    var message: Message
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    @ViewBuilder func contactsTable(choices: [ContactManager.Choice]) -> some View  {
+        Group {
+            ForEach(choices) { choice in
+                VStack {
+                    Text(choice.name)
+                    Text(choice.detail)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding()
+    }
+    
+    var body: some View {
+        VStack {
+            switch message.choices {
+            case .contacts(let choices):
+                contactsTable(choices: choices)
+            default:
+                EmptyView()
+            }
+        }
+        .padding()
+        
+        
+    }
+    
+    
 }
 
 struct MarkdownCodeView: View {
@@ -773,22 +862,6 @@ struct MarkdownCodeView: View {
 
 }
 
-struct FunctionCodeView: View {
-    var body: some View {
-        HStack {
-            Text("Working")
-                .foregroundStyle(.white)
-                .padding()
-            ProgressView()
-                .controlSize(.small)
-                .padding()
-        }
-        .background(.green)
-        .cornerRadius(12)
-        .clipped()
-    }
-}
-
 private extension MessageView {
     var theme: Splash.Theme {
         switch colorScheme {
@@ -804,13 +877,70 @@ private extension MessageView {
 struct DataMessageView: View {
     @Binding var attachments: [Attachment]
     var message: Message
+    
+    @State var height: CGFloat? = nil
 
     var body: some View {
-        WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
-            AttachmentView(message: message, attachment: attachment)
+        VStack(spacing: 0) {
+            GeometryReader { proxy in
+                WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
+                    AttachmentView(message: message, attachment: attachment)
+                }
+                .onChange(of: attachments, { oldValue, newValue in
+                    if attachments.isEmpty {
+                        height = -10
+                        return
+                    }
+                    print("height of data", proxy.size.height)
+                    height = proxy.size.height
+                    
+                    let perRow = floor(proxy.size.width / (140 + 10))
+                    
+                    print("per row", perRow)
+                    
+                    let rows = ceil(CGFloat(newValue.count) / perRow)
+                    
+                    print("rows", rows)
+                    
+                    let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                    
+                    print("ideal height", idealHeight)
+                    
+                    if height == nil || height! < idealHeight {
+                        height = idealHeight
+                    }
+                    
+                    print("height of data", height)
+                })
+                .onAppear {
+                    if attachments.isEmpty {
+                        height = -10
+                        return
+                    }
+                    print("height of data at start", proxy.size.height)
+                    height = proxy.size.height
+                    
+                    let perRow = floor(proxy.size.width / (140 + 10))
+                    
+                    print("per row", perRow)
+                    
+                    let rows = ceil(CGFloat(attachments.count) / perRow)
+                    
+                    print("rows", rows)
+                    
+                    let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                    
+                    print("ideal height", idealHeight)
+                    
+                    if height == nil || height! < idealHeight {
+                        height = idealHeight
+                    }
+
+                    print("height of data at start", height)
+                }
+            }
         }
-        .frame(
-            maxHeight: .infinity)
+        .frame(minHeight: height, maxHeight: .infinity)
     }
 }
 
@@ -833,7 +963,16 @@ struct AttachmentPreview: View {
 
     var body: some View {
         ZStack {
-            if let image = attachment.previewImage {
+            if attachment.url?.dataType == .photo {
+                if let image = UIImage(url: attachment.url) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: sideLength, height: sideLength * 1.2)
+                        .clipped()
+                }
+            }
+            else if let image = attachment.previewImage {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -874,6 +1013,7 @@ struct AttachmentView: View {
     var innerBody: some View {
         ZStack {
             AttachmentPreview(message: message, attachment: $attachment, sideLength: $sideLength)
+                .frame(width: sideLength, height: sideLength * 1.2)
             
             VStack(alignment: .leading) {
                 Spacer()
@@ -918,10 +1058,10 @@ struct AttachmentView: View {
             .frame(width: sideLength, height: sideLength * 1.2)
             
         }
-        .frame(width: sideLength)
-        .clipped()
+        .frame(width: sideLength, height: sideLength * 1.2)
         .background(Color(hex: "#000000", alpha: 0.1))
-        .cornerRadius(12)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipped()
         .contextMenu {
             Button {
                 attachment.open()

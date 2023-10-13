@@ -15,6 +15,10 @@ import UIKit
 import NanoID
 import Blackbird
 
+enum MessageChoices: Codable {
+    case contacts(choices: [ContactManager.Choice])
+}
+
 class Message: ObservableObject {
     // the database representation of the message only
     var record: MessageRecord
@@ -40,8 +44,20 @@ class Message: ObservableObject {
         }
     }
     
+    @Published var choices: MessageChoices? {
+        didSet {
+            let encoder = JSONEncoder()
+            if let data = try? encoder.encode(choices), let text = String(data: data, encoding: .utf8) {
+                record.content = text
+            }
+        }
+    }
+    
     // renders the message for MacPaw's openAI lib
-    var ai: Chat {
+    var ai: Chat? {
+        if record.messageType == .select {
+            return nil
+        }
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { attachment in
                 if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
@@ -86,6 +102,13 @@ class Message: ObservableObject {
         }
         if let log = record.functionLog {
             self.functionLog = log
+        }
+        if record.messageType == .select {
+            let decoder = JSONDecoder()
+            if let data = record.content.data(using: .utf8),
+               let choices = try? decoder.decode(MessageChoices.self, from: data) {
+                self.choices = choices
+            }
         }
     }
     
@@ -204,7 +227,21 @@ extension UIImage {
     }
 }
 
-class Attachment: ObservableObject {
+class Attachment: ObservableObject, Hashable, Identifiable {
+    
+    var id: String {
+        return "\(attachmentRecord.msgId)\(attachmentRecord.dataId)"
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(attachmentRecord.msgId)
+        hasher.combine(attachmentRecord.dataId)
+    }
+    
+    static func == (lhs: Attachment, rhs: Attachment) -> Bool {
+        return lhs.url == rhs.url
+    }
+    
     @Published var generatingPreview = false
     @Published var indexing = false
     @Published var status = ""

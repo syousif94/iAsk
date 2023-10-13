@@ -179,6 +179,23 @@ func moveFile(from sourceURL: URL, to destinationURL: URL) {
     }
 }
 
+func copyFile(from sourceURL: URL, to destinationURL: URL) {
+    let fileManager = FileManager.default
+    
+    do {
+        // Remove the destination file if it exists
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        
+        // Move the file
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+        print("File moved successfully")
+    } catch {
+        print("Error moving file: \(error)")
+    }
+}
+
 func changeFileExtension(url: URL, newExtension: String) -> URL? {
     let newURL = url.deletingPathExtension().appendingPathExtension(newExtension)
     
@@ -235,4 +252,11 @@ struct RoundedCornersShape: Shape {
     
     var corners: UIRectCorner
     var radius: CGFloat
+}
+
+extension Array where Element: Hashable {
+    func unique<T: Hashable>(by keyPath: KeyPath<Element, T>) -> [Element] {
+        var uniqueValues = Set<T>()
+        return filter { uniqueValues.insert($0[keyPath: keyPath]).inserted }
+    }
 }

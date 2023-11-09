@@ -12,6 +12,7 @@ import Combine
 import SwiftDate
 import OrderedCollections
 import MarkdownUI
+import Splash
 
 struct HistoryView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -114,7 +115,7 @@ struct HistorySearchInput: View {
             TextField("Search", text: $history.searchValue)
                 .padding(.horizontal)
                 .padding(.leading, 30)
-                .frame(minHeight: 44)
+                .frame(minHeight: 54)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(true)
             
@@ -135,8 +136,8 @@ struct HistorySearchInput: View {
                 }) {
                     Image(systemName: "mic.fill")
                         .foregroundColor(isRecording ? .red : .gray)
-                        .padding(.trailing, 10)
-                        .frame(minHeight: 44)
+                        .padding(.trailing, 12)
+                        .frame(minHeight: 54)
                         .onReceive(history.transcriptManager.$isRecording) { newValue in
                             self.isRecording = newValue
                         }
@@ -148,8 +149,8 @@ struct HistorySearchInput: View {
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray)
-                            .padding(.trailing, 10)
-                            .frame(minHeight: 44)
+                            .padding(.trailing, 12)
+                            .frame(minHeight: 54)
                     }
                     
                 }
@@ -159,7 +160,7 @@ struct HistorySearchInput: View {
             
         }
         .background(Color.gray.opacity(0.2))
-        .cornerRadius(8)
+        .cornerRadius(12)
     }
 }
 
@@ -173,7 +174,7 @@ struct HistoryListItem: View {
         }) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Text(log.record.createdAt.toFormat("MMM dd yyyy, h:mma"))
+                    Text(log.record.createdAt.in(region: .current).toFormat("MMM dd yyyy, h:mma"))
                         .font(.caption)
                     Text(log.record.createdAt.toRelative(since: nil))
                         .font(.caption)
@@ -186,19 +187,26 @@ struct HistoryListItem: View {
                             .padding(.horizontal)
                             .padding(.bottom)
                     }
+                    else if message.record.isFunctionCall {
+                        switch message.functionType {
+                        case .createCalendarEvent:
+                            EventsMessageView(message: message, answering: message.answering)
+                        default:
+                            EmptyView()
+                        }
+                    }
                     else {
                         HistoryListText(message: message)
                     }
                 }
                 .frame(maxWidth: .infinity)
             }
-            
             .cornerRadius(12)
             .frame(maxWidth: .infinity)
             .background(colorScheme == .dark ?
-                                    Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
-                                    Color(red: 0, green: 0, blue: 0, opacity: 0.05)
-                        )
+                Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
+                Color(red: 0, green: 0, blue: 0, opacity: 0.05)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .contextMenu {
                 Button {
@@ -251,19 +259,22 @@ struct HistoryListText: View {
     }
     
     var body: some View {
-        HStack {
-            Text(
-                text
-            )
-                .fontWeight(message.record.role == .user ? .bold : .regular)
-                .font(message.record.role == .user ? nil : Font.system(size: 12))
-                .lineLimit(5)
-                .padding(.horizontal)
-                .padding(.bottom)
-                .multilineTextAlignment(.leading)
-            Spacer()
+        if message.record.role != .function {
+            HStack {
+                Text(
+                    text
+                )
+                    .fontWeight(message.record.role == .user ? .bold : .regular)
+                    .font(message.record.role == .user ? nil : Font.system(size: 12))
+                    .lineLimit(5)
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                    .multilineTextAlignment(.leading)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
+        
     }
 }
 

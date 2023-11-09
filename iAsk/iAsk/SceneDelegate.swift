@@ -35,13 +35,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
         
+        handleUrls(urlContexts: connectionOptions.urlContexts)
+        
+        window.makeKeyAndVisible()
+    }
+    
+    func handleUrls(urlContexts: Set<UIOpenURLContext>) {
         var importedUrls = [URL]()
         
-        for urlContext in connectionOptions.urlContexts {
+        for urlContext in urlContexts {
             let url = urlContext.url
             
-            if let newUrl = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
-                url.startAccessingSecurityScopedResource()
+            if let shareExtUrls = getShareUrls(from: url.absoluteString), !shareExtUrls.isEmpty {
+                importedUrls += shareExtUrls
+            }
+            else if let newUrl = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                let _ = url.startAccessingSecurityScopedResource()
                 copyFile(from: url, to: newUrl)
                 url.stopAccessingSecurityScopedResource()
                 importedUrls.append(newUrl)
@@ -51,8 +60,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         DispatchQueue.main.async {
             importedDocumentNotification.send(importedUrls)
         }
-        
-        window.makeKeyAndVisible()
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -73,8 +80,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
-        // Called as the scene transitions from the background to the foreground.
-        // Use this method to undo the changes made on entering the background.
+        let pasteboard = UIPasteboard.general
+        if pasteboard.hasStrings || pasteboard.hasImages || pasteboard.hasURLs {
+            print("show paste option")
+        }
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
@@ -85,25 +94,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         
-        var importedUrls = [URL]()
-        
-        for urlContext in URLContexts {
-            let url = urlContext.url
-            
-            if let newUrl = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
-                url.startAccessingSecurityScopedResource()
-                copyFile(from: url, to: newUrl)
-                url.stopAccessingSecurityScopedResource()
-                importedUrls.append(newUrl)
-            }
-        }
-        
-        DispatchQueue.main.async {
-            importedDocumentNotification.send(importedUrls)
-        }
-        
+        handleUrls(urlContexts: URLContexts)
     }
     
     
 }
 
+func getShareUrls(from urlString: String) -> [URL]? {
+    guard let url = URL(string: urlString),
+          let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+          let queryItems = components.queryItems else {
+        return nil
+    }
+    
+    var urls = [URL]()
+    
+    for item in queryItems where item.name == "share_url" {
+        if let urlText = item.value?.removingPercentEncoding,
+            let url = URL(string: urlText) {
+            urls.append(url)
+        }
+    }
+    
+    return urls
+}

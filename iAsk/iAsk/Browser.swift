@@ -8,6 +8,7 @@
 import WebKit
 import UIKit
 import PinLayout
+import Combine
 
 let showWebNotification = NotificationPublisher<Bool>()
 
@@ -15,31 +16,37 @@ class Browser: UIViewController {
     
     static let shared = Browser()
     
+    let screenshotManager = ScreenshotManager()
+    
     let keyboardManager = KeyboardManager()
     
     var webView: WKWebView?
     var completionHandler: ((String?) -> Void)?
-    var snapshotHandler: ((UIImage?) -> Void)?
     
     var urlInputText: String = "https://google.com"
     
-    var browserUrl: URL? {
-        didSet {
-            if let url = browserUrl {
-                let request = URLRequest(url: url)
-                webView?.load(request)
-            }
-        }
-    }
+    var viewModel = BrowserViewModel()
+    
+    var cancellables = Set<AnyCancellable>()
     
     let browserBar: UIVisualEffectView = {
         let view = UIVisualEffectView(effect: UIBlurEffect(style: .extraLight))
         return view
     }()
     
+    let browserBarTopBorder = {
+        let view = UIView()
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.1)
+        return view
+    }()
+    
+    let progressBar = UIProgressView(progressViewStyle: .bar)
+    
     let browserInput = BrowserTextField()
     
     let browserMenuButton = BrowserButton()
+    
+    // MARK: CREATE WEBVIEW FUNCTION
     
     func createWebView(parentView: UIView) {
         if webView != nil {
@@ -55,16 +62,16 @@ class Browser: UIViewController {
         webView?.allowsBackForwardNavigationGestures = true
         view.insertSubview(webView!, belowSubview: browserBar)
         
-        browserUrl = URL(string: urlInputText)
+        viewModel.browserUrl = URL(string: urlInputText)
         
         keyboardManager.observeKeyboardChanges { (height, animation) in
             var bottomOffset = UIApplication.shared.windows.first!.safeAreaInsets.bottom
             
             if bottomOffset == 0 {
-                bottomOffset = 8
+                bottomOffset = 12
             }
             
-            let yTranslate: CGFloat = height != 0 ? -height + bottomOffset - 16 : 0
+            let yTranslate: CGFloat = height != 0 ? -height + bottomOffset - 12 : 0
             let transform = CGAffineTransform(translationX: 0, y:  yTranslate)
             
             if let animation = animation {
@@ -75,7 +82,44 @@ class Browser: UIViewController {
                 self.browserBar.transform = transform
             }
         }
+        
+        webView!.publisher(for: \.estimatedProgress)
+            .map { Float($0) }
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.progress, on: progressBar)
+            .store(in: &cancellables)
+        
+        webView!.publisher(for: \.estimatedProgress)
+            .map { $0 == 1 }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isHidden, on: progressBar)
+            .store(in: &cancellables)
+        
+//        webView!.publisher(for: \.estimatedProgress)
+//            .sink { progress in
+//                print("Progress: \(progress)")
+//            }
+//            .store(in: &cancellables)
+
+        webView!.publisher(for: \.url)
+            .sink { url in
+                print("URL: \(url)")
+                DispatchQueue.main.async {
+                    self.viewModel.inputText = url?.absoluteString
+                }
+                
+            }
+            .store(in: &cancellables)
+
+        webView!.publisher(for: \.title)
+            .sink { title in
+                print("Title: \(title)")
+            }
+            .store(in: &cancellables)
     }
+    
+    // MARK: VIEW DID LAYOUT SUBVIEWS
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -89,24 +133,28 @@ class Browser: UIViewController {
         var bottomOffset = UIApplication.shared.windows.first!.safeAreaInsets.bottom
         
         if bottomOffset == 0 {
-            bottomOffset = 8
+            bottomOffset = 12
         }
         
         webView?.pin.all()
         
         webView?.scrollView.contentInset.top = topOffset
         
-        webView?.scrollView.contentInset.bottom = bottomOffset + 44 + 8
+        webView?.scrollView.contentInset.bottom = bottomOffset + 54 + 12
         
-        webView?.scrollView.verticalScrollIndicatorInsets = .init(top: 0, left: 0, bottom: bottomOffset + 44 + 8, right: 0)
+        webView?.scrollView.verticalScrollIndicatorInsets = .init(top: topOffset, left: 0, bottom: bottomOffset + 54 + 12, right: 0)
         
-        browserBar.pin.bottom().horizontally().height(bottomOffset + 8 + 44)
+        browserBar.pin.bottom().horizontally().height(bottomOffset + 12 + 54)
         
         browserBar.contentView.pin.all()
         
-        browserMenuButton.pin.top(8).right(8).height(44).width(44)
+        browserBarTopBorder.pin.top().horizontally().height(1)
         
-        browserInput.pin.top(8).left(8).height(44).before(of: browserMenuButton).marginRight(8)
+        browserMenuButton.pin.top(12).right(16).height(54).width(54)
+        
+        browserInput.pin.top(12).left(16).height(54).before(of: browserMenuButton).marginRight(12)
+        
+        progressBar.pin.top().left().right().height(2)
     }
     
     private func updateColors() {
@@ -127,6 +175,8 @@ class Browser: UIViewController {
     
     let inputDelegate = InputTextCoordinator()
     
+    // MARK: VIEW DID LOAD
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -135,9 +185,41 @@ class Browser: UIViewController {
         
         browserBar.contentView.addSubview(browserMenuButton)
         browserBar.contentView.addSubview(browserInput)
+        browserBar.contentView.addSubview(browserBarTopBorder)
         
         browserInput.returnKeyType = .go
         browserInput.delegate = inputDelegate
+        browserInput.clearButtonMode = .always
+        browserInput.keyboardType = .webSearch
+        browserInput.enablesReturnKeyAutomatically = true
+        browserInput.spellCheckingType = .no
+        browserInput.autocorrectionType = .no
+        browserInput.autocapitalizationType = .none
+        inputDelegate.parent = self
+        
+        progressBar.trackTintColor = UIColor.clear
+        progressBar.progressTintColor = UIColor.blue
+        progressBar.layer.cornerRadius = 0
+        progressBar.clipsToBounds = true
+
+        browserBar.contentView.addSubview(self.progressBar)
+        
+        viewModel.$inputText
+            .assign(to: \.text, on: browserInput)
+            .store(in: &cancellables)
+        
+        // Bind TextField's text to View`Model's text
+        NotificationCenter.default.publisher(for: UITextField.textDidChangeNotification, object: browserInput)
+            .compactMap { $0.object as? UITextField }
+            .map { $0.text ?? "" }
+            .assign(to: \.text, on: browserInput)
+            .store(in: &cancellables)
+        
+        viewModel.onURLLoad = { url in
+            DispatchQueue.main.async {
+                self.webView?.load(URLRequest(url: url))
+            }
+        }
     }
     
     func fetchHTML(from url: URL, completionHandler: @escaping (String?) -> Void) {
@@ -146,36 +228,53 @@ class Browser: UIViewController {
             return
         }
         self.completionHandler = completionHandler
-        browserUrl = url
+        self.viewModel.browserUrl = url
     }
     
     func dumpHTML(completionHandler: @escaping (String?) -> Void) {
-        webView?.evaluateJavaScript("document.documentElement.outerHTML.toString()",
-                                   completionHandler: { (html: Any?, error: Error?) in
+        
+        webView?.evaluateJavaScript("document.documentElement.outerHTML.toString()", completionHandler: { (html: Any?, error: Error?) in
+            
+            let image = self.webView?.screenshot()
+            
             if let htmlString = html as? String {
                 self.completionHandler?(htmlString)
             } else {
-                self.completionHandler?(nil) // handle error as needed
+                self.completionHandler?(nil)
             }
+            
         })
     }
     
-    func takeURLSnapshot(_ url: URL, handler: @escaping (UIImage?) -> Void) {
-        self.snapshotHandler = handler
+    func findURLs(input: String) -> [URL] {
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let matches = detector?.matches(in: input, options: [], range: NSRange(location: 0, length: input.utf16.count))
         
-        webView?.load(URLRequest(url: url))
+        var urls = [URL]()
+        
+        for match in matches ?? [] {
+            if let url = match.url {
+                urls.append(url)
+            }
+        }
+        
+        return urls
     }
     
     func loadURLString(_ string: String) {
         let searchString = string.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if searchString.contains("://") || searchString.hasPrefix("www.") {
-            if let url = URL(string: searchString) {
-                webView?.load(URLRequest(url: url))
-            }
+        print("search string", searchString)
+        
+        let urls = findURLs(input: searchString)
+        
+        if let url = urls.first, searchString.split(separator: " ").count == 1 {
+            print(url)
+            self.viewModel.browserUrl = url
         } else {
             if let url = URL(string: "https://www.google.com/search?q=\(searchString.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? "")") {
-                webView?.load(URLRequest(url: url))
+                print(url)
+                self.viewModel.browserUrl = url
             }
         }
     }
@@ -194,46 +293,58 @@ class Browser: UIViewController {
 }
 
 extension Browser: WKNavigationDelegate {
+    
+    
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         
-        if let handler = self.snapshotHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                let configuration = WKSnapshotConfiguration()
-                configuration.rect = CGRect(origin: .zero, size: webView.scrollView.contentSize)
-                
-                webView.takeSnapshot(with: configuration) {image, error in
-                    if let error = error {
-                        print(error)
-                    }
-                    handler(image)
-                    self.snapshotHandler = nil
+        print("url loaded", webView.url)
+        print("view model url", viewModel.browserUrl)
+        
+        let url = viewModel.browserUrl
+        
+        if let handler = self.completionHandler {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if let url = url {
+                    self.takeScreenshot(url: url)
                 }
-            }
-        }
-        else if let handler = self.completionHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                
                 webView.evaluateJavaScript("document.documentElement.outerHTML.toString()",
                                            completionHandler: { (html: Any?, error: Error?) in
                     if let htmlString = html as? String {
-                        self.completionHandler?(htmlString)
+                        handler(htmlString)
                     } else {
-                        self.completionHandler?(nil) // handle error as needed
+                        handler(nil)
                     }
                     self.completionHandler = nil
                 })
             }
         }
     }
+    
+    private func takeScreenshot(url: URL) {
+        let cachePath = ImageCache.getCachePath(url: url)
+        if let image = self.webView?.screenshot()  {
+            Task {
+                try? await self.screenshotManager.storeScreenshot(image, for: url, at: cachePath)
+           }
+        }
+    }
+
+    func onScreenshotReady(for url: URL) async -> URL? {
+        return await screenshotManager.onScreenshotReady(for: url)
+    }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        // Handle the error as needed
+        if let url = viewModel.browserUrl {
+            self.takeScreenshot(url: url)
+        }
         completionHandler?(nil)
     }
 }
 
 class BrowserTextField: UITextField {
     
-    let padding = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
+    let padding = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -276,6 +387,11 @@ class BrowserTextField: UITextField {
 
     override func editingRect(forBounds bounds: CGRect) -> CGRect {
         return bounds.inset(by: padding)
+    }
+    
+    override func clearButtonRect(forBounds bounds: CGRect) -> CGRect {
+        let originalRect = super.clearButtonRect(forBounds: bounds)
+        return originalRect.offsetBy(dx: -8, dy: 0)
     }
 }
 
@@ -358,5 +474,44 @@ class BrowserButton: UIButton {
         if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
             updateColors()
         }
+    }
+}
+
+
+// Actor to manage screenshot file URLs
+actor ScreenshotManager {
+    private var screenshotURLs: [URL: URL] = [:]
+    private var screenshotReadyContinuations: [URL: [CheckedContinuation<URL?, Never>]] = [:]
+
+    func storeScreenshot(_ screenshot: UIImage, for pageURL: URL, at cacheURL: URL) async throws {
+        try await saveImage(screenshot, at: cacheURL)
+        screenshotURLs[pageURL] = cacheURL
+        screenshotReadyContinuations[pageURL]?.forEach { continuation in
+            continuation.resume(returning: cacheURL)
+        }
+        screenshotReadyContinuations[pageURL] = nil
+    }
+
+    func screenshotURL(for pageURL: URL) -> URL? {
+        return screenshotURLs[pageURL]
+    }
+
+    func onScreenshotReady(for pageURL: URL) async -> URL? {
+        if let fileURL = screenshotURLs[pageURL] {
+            return fileURL
+        } else {
+            return await withCheckedContinuation { continuation in
+                screenshotReadyContinuations[pageURL, default: []].append(continuation)
+            }
+        }
+    }
+
+    private func saveImage(_ image: UIImage, at cacheURL: URL) async throws {
+
+        guard let imageData = image.pngData() else {
+            throw NSError(domain: "ScreenshotManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to convert UIImage to PNG data"])
+        }
+
+        try imageData.write(to: cacheURL)
     }
 }

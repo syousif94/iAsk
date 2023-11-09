@@ -60,19 +60,22 @@ struct WriteFilesArgs: Codable {
         let path: String
         let content: String
     }
-    let files: [File]?;
+    let files: [File]?
 }
 
 struct ReadFilesArgs: Codable {
-    let files: [String];
+    let files: [String]
+    let summaryRequested: Bool?
+    let mathRequested: Bool?
+    let editsRequestedFor: [String]?
 }
 
 
 struct ConvertMediaArgs: Codable {
     struct ItemArgs: Codable {
-        let inputFilePath: String?;
-        let command: String?;
-        let outputExtension: String?;
+        let inputFilePath: String?
+        let command: String?
+        let outputExtension: String?
     }
     
     let items: [ItemArgs]
@@ -223,7 +226,7 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               type: .object,
               properties: [
                 "name": .init(type: .string, description: "A name to search for, e.g. Steve"),
-                "contactType": .init(type: .string, enumValues: ["email", "phone"])
+                "contactType": .init(type: .string, enumValues: ["email", "phone", "address"])
               ],
               required: ["name", "contactType"]
             )
@@ -235,11 +238,12 @@ func getFunctions() -> [ChatFunctionDeclaration] {
             JSONSchema(
               type: .object,
               properties: [
+                "contact": .init(type: .string, description: "The name of the contact, e.g. joe"),
                 "email": .init(type: .string, description: "The email address for the contact, e.g. john@doe.com"),
                 "subject": .init(type: .string, description: "The subject of the email"),
                 "body": .init(type: .string, description: "The body of the email")
               ],
-              required: ["email", "subject", "body"]
+              required: ["subject", "body"]
             )
       ),
       ChatFunctionDeclaration(
@@ -332,7 +336,14 @@ func getFunctions() -> [ChatFunctionDeclaration] {
                     type: .array,
                     items: JSONSchema.Items(
                         type: .string
-                ))
+                )),
+//                "summaryRequested": .init(type: .boolean, description: "Set to true if the user needs a summary of the file(s)"),
+//                "mathRequested": .init(type: .boolean, description: "Set to true if the user needs any numbers added together"),
+                "editsRequestedFor": .init(
+                    type: .array,
+                    items: JSONSchema.Items(
+                        type: .string
+                )),
               ],
               required: ["files"]
             )

@@ -91,6 +91,7 @@ struct MessageRecord: BlackbirdModel, Codable {
     @BlackbirdColumn var content: String
     @BlackbirdColumn var role: Chat.Role
     @BlackbirdColumn var messageType: MessageType
+    @BlackbirdColumn var model: Model?
     @BlackbirdColumn var promptTokens: Int?
     @BlackbirdColumn var completionTokens: Int?
     @BlackbirdColumn var totalTokens: Int?
@@ -99,11 +100,15 @@ struct MessageRecord: BlackbirdModel, Codable {
     @BlackbirdColumn var functionCallArgs: String?
     @BlackbirdColumn var functionLog: String?
     
+    // store json or ids of objects created on the system as a result of messages
+    // ex. calendar, contact, reminder, etc
+    @BlackbirdColumn var systemIdentifier: String?
+    
     var isFunctionCall: Bool {
         return role == .assistant && functionCallName != nil && !functionCallName!.isEmpty
     }
     
-    init(chatId: String, parentMessageId: String? = nil, createdAt: Date, content: String, role: Chat.Role, messageType: MessageType, promptTokens: Int? = nil, completionTokens: Int? = nil, totalTokens: Int? = nil, functionCallName: String? = nil) {
+    init(chatId: String, parentMessageId: String? = nil, createdAt: Date, content: String, role: Chat.Role, messageType: MessageType, model: Model? = nil, promptTokens: Int? = nil, completionTokens: Int? = nil, totalTokens: Int? = nil, functionCallName: String? = nil) {
         let idGen = NanoID.ID()
         let uniqueID = idGen.generate(size: 10)
         self.id = uniqueID
@@ -113,6 +118,7 @@ struct MessageRecord: BlackbirdModel, Codable {
         self.content = content
         self.role = role
         self.messageType = messageType
+        self.model = model
         self.promptTokens = promptTokens
         self.completionTokens = completionTokens
         self.totalTokens = totalTokens
@@ -126,8 +132,11 @@ struct MessageRecord: BlackbirdModel, Codable {
         // present buttons to user
         case select = "select"
         
-        // present message to user
+        // present an editable, sendable message to user
         case message = "msg"
+        
+        // present a editable events to user
+        case events = "events"
     }
 }
 
@@ -155,4 +164,15 @@ struct EmbeddingRecord: BlackbirdModel, Codable {
     @BlackbirdColumn var embeddingId: String
     @BlackbirdColumn var createdAt: Date
     @BlackbirdColumn var updatedAt: Date?
+}
+
+struct BrowserHistoryRecord: BlackbirdModel, Codable {
+    @BlackbirdColumn var id: String
+    @BlackbirdColumn var url: String
+    @BlackbirdColumn var title: String?
+    @BlackbirdColumn var meta: String?
+    @BlackbirdColumn var description: String?
+    @BlackbirdColumn var createdAt: Date
+    @BlackbirdColumn var lastVisited: Date?
+    @BlackbirdColumn var visitCount: Int
 }

@@ -29,6 +29,7 @@ class SearchableContact: Searchable {
 enum ContactType: String, Codable {
     case email = "email"
     case phone = "phone"
+    case address = "address"
 }
 
 typealias SortedSearchable<T: Searchable> = (T, [Alignment])

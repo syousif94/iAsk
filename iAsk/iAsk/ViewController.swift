@@ -11,6 +11,7 @@ import SwiftUI
 import Combine
 import WebKit
 import MobileCoreServices
+import NanoID
 
 let scrollToPageNotification = NotificationPublisher<(page: Int, animated: Bool)>()
 
@@ -22,11 +23,15 @@ class ViewController: UIViewController {
     
     let pageTwo = UIView()
     
+    let pageThree = UIView()
+    
     var currentPage: Int = 1
     
     var currentChat = ChatViewModel()
     
     var currentHistory = HistoryViewModel()
+    
+    var cameraModel = CameraViewModel()
     
     lazy var chatViewController: UIHostingController = {
         let view = ChatViewWrapper(chat: currentChat)
@@ -35,6 +40,11 @@ class ViewController: UIViewController {
     
     lazy var historyViewController: UIHostingController = {
         let view = HistoryView(history: self.currentHistory)
+        return UIHostingController(rootView: view)
+    }()
+    
+    lazy var cameraViewController: UIHostingController = {
+        let view = CameraView(camera: self.cameraModel)
         return UIHostingController(rootView: view)
     }()
     
@@ -75,6 +85,8 @@ class ViewController: UIViewController {
         
         scrollView.keyboardDismissMode = .onDrag
         
+        scrollView.contentInsetAdjustmentBehavior = .never
+        
         addChild(historyViewController)
         
         pageOne.addSubview(historyViewController.view)
@@ -86,6 +98,18 @@ class ViewController: UIViewController {
         pageTwo.addSubview(chatViewController.view)
         
         chatViewController.didMove(toParent: self)
+        
+        if !Application.isCatalyst {
+            scrollView.addSubview(pageThree)
+            
+            addChild(cameraViewController)
+            
+            pageThree.addSubview(cameraViewController.view)
+            
+            cameraViewController.didMove(toParent: self)
+            
+            pageThree.backgroundColor = .black
+        }
         
         setupShowDocumentsListener()
         
@@ -182,7 +206,7 @@ class ViewController: UIViewController {
             print("scroll to page: \(value)")
             
             DispatchQueue.main.async {
-                self.scrollView.setContentOffset(.init(x: 0, y: CGFloat(value.page) * self.scrollView.frame.width), animated: value.animated)
+                self.scrollView.setContentOffset(.init(x: CGFloat(value.page) * self.scrollView.frame.width, y: 0), animated: value.animated)
             }
             
         }
@@ -232,11 +256,22 @@ class ViewController: UIViewController {
         
         pageTwo.pin.after(of: pageOne).vertically().width(of: pageOne)
         
+        let pageCount: CGFloat
+        
+        if !Application.isCatalyst {
+            pageCount = 3
+            pageThree.pin.after(of: pageTwo).vertically().width(of: pageOne)
+            cameraViewController.view.pin.all()
+        }
+        else {
+            pageCount = 2
+        }
+        
         chatViewController.view.pin.all()
         
         historyViewController.view.pin.all()
         
-        scrollView.contentSize = .init(width: scrollView.frame.width * 2, height: scrollView.frame.height)
+        scrollView.contentSize = .init(width: scrollView.frame.width * pageCount, height: scrollView.frame.height)
         
         Browser.shared.view.pin.all()
         
@@ -247,6 +282,13 @@ class ViewController: UIViewController {
             print("scrolled to page", currentChat.isPresentingText, currentPage)
             scrollView.contentOffset.x = scrollView.frame.width * CGFloat(currentPage)
         }
+        
+        let isWide = view.frame.width > 800
+        let shouldChangeChatWideness = isWide != currentChat.isWide
+        if shouldChangeChatWideness {
+            currentChat.isWide = isWide
+        }
+        
     }
     
     private func updateColors() {
@@ -272,7 +314,8 @@ class ViewController: UIViewController {
             UIKeyCommand(input: "n", modifierFlags: [.command], action: #selector(resetChat)),
             UIKeyCommand(input: "f", modifierFlags: [.command], action: #selector(search)),
             UIKeyCommand(input: "s", modifierFlags: [.command], action: #selector(saveChat)),
-            UIKeyCommand(input: "4", modifierFlags: [.command], action: #selector(togglePro))
+            UIKeyCommand(input: "4", modifierFlags: [.command], action: #selector(togglePro)),
+            UIKeyCommand(input: ",", modifierFlags: [.command], action: #selector(showSettings))
         ]
     }
     
@@ -296,21 +339,33 @@ class ViewController: UIViewController {
         currentChat.send()
     }
     
+    @objc func showSettings() {
+        currentChat.showSettings.toggle()
+    }
+    
     @objc func resetChat() {
+        
         Task {
             await currentChat.resetChat()
+            DispatchQueue.main.async {
+                scrollToPageNotification.send((1, true))
+            }
         }
+        
     }
     
     @objc func search() {
         scrollToPageNotification.send((0, true))
     }
+    
+    
 }
 
 extension ViewController: UIScrollViewDelegate {
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         let pageWidth = scrollView.frame.size.width
         currentPage = Int(ceil(scrollView.contentOffset.x / pageWidth))
+        cameraModel.isActive = currentPage == 2
     }
 }
 
@@ -371,7 +426,7 @@ extension ViewController: UIDropInteractionDelegate {
         }
         
         let currentlyDraggingURL = self.currentChat.currentlyDragging
-        var currentChat = self.currentChat
+        let currentChat = self.currentChat
         
         Task {
             let urls = try? await withThrowingTaskGroup(of: URL?.self) { [currentChat] group -> [URL] in
@@ -383,44 +438,76 @@ extension ViewController: UIDropInteractionDelegate {
                         group.addTask {
                             func loadInPlaceFileRepresentationAsync(forTypeIdentifier typeIdentifier: String) async throws -> URL? {
                                 return try await withCheckedThrowingContinuation { continuation in
-                                    provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
-                                        guard let url = url else {
-                                            continuation.resume(throwing: GenericError.error("URL is nil"))
-                                            return
-                                        }
-                                        
-                                        guard url.lastPathComponent != currentlyDraggingURL?.lastPathComponent else {
-                                            currentChat.currentlyDragging = nil
-                                            continuation.resume(throwing: GenericError.error("URL is dragging"))
-                                            return
-                                        }
-                                        
-                                        let fileManager = FileManager.default
-                                        if let newPath = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
-                                            
-                                            do {
-                                            
-                                                try? fileManager.removeItem(at: newPath)
-                                                try fileManager.copyItem(at: url, to: newPath)
-                                            
+                                    
+                                    let id = ID(size: 6)
+                                    
+                                    if typeIdentifier.contains("uikit.image") {
+                                        provider.loadObject(ofClass: UIImage.self) { item, error in
+                                            if let image = item as? UIImage,
+                                               let newPath = Disk.support.getPath(for: "imports/\(id.generate()).png") {
+                                                try? image.pngData()?.write(to: newPath, options: [.atomic])
+                                                continuation.resume(returning: newPath)
                                             }
-                                            catch {
-                                                print(error)
-                                                continuation.resume(throwing: error)
+                                            else {
+                                                continuation.resume(throwing: GenericError.error("Failed to generate import path"))
+                                            }
+                                        }
+                                        
+                                    }
+                                    else if typeIdentifier.contains("mpeg-4") {
+                                        provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
+                                            if let data = data,
+                                               let newPath = Disk.support.getPath(for: "imports/\(id.generate()).mp4") {
+                                                try? data.write(to: newPath, options: [.atomic])
+                                                continuation.resume(returning: newPath)
+                                            }
+                                            else {
+                                                continuation.resume(throwing: GenericError.error("Failed to generate import path"))
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
+                                            guard let url = url else {
+                                                continuation.resume(throwing: GenericError.error("URL is nil"))
                                                 return
                                             }
                                             
-                                        
-                                            if let error = error {
-                                                continuation.resume(throwing: error)
-                                            } else {
-                                                continuation.resume(returning: newPath)
+                                            guard url.lastPathComponent != currentlyDraggingURL?.lastPathComponent else {
+                                                currentChat.currentlyDragging = nil
+                                                continuation.resume(throwing: GenericError.error("URL is dragging"))
+                                                return
+                                            }
+                                            
+                                            let fileManager = FileManager.default
+                                            if var newPath = Disk.support.getPath(for: "imports/\(url.lastPathComponent)") {
+                                                
+                                                do {
+                                                
+                                                    try? fileManager.removeItem(at: newPath)
+                                                    try fileManager.copyItem(at: url, to: newPath)
+                                                
+                                                }
+                                                catch {
+                                                    print(error)
+                                                    continuation.resume(throwing: error)
+                                                    return
+                                                }
+                                                
+                                            
+                                                if let error = error {
+                                                    continuation.resume(throwing: error)
+                                                } else {
+                                                    continuation.resume(returning: newPath)
+                                                }
+                                            }
+                                            else {
+                                                continuation.resume(throwing: GenericError.error("Failed to generate import path"))
                                             }
                                         }
-                                        else {
-                                            continuation.resume(throwing: GenericError.error("Failed to generate import path"))
-                                        }
                                     }
+                                    
+                                    
                                 }
                             }
                             

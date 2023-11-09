@@ -111,7 +111,7 @@ extension URL {
     }
     
     var dataType: DataType? {
-        let ext = self.pathExtension
+        let ext = self.pathExtension.lowercased()
         if let _ = FileType(rawValue: ext) {
             return .doc
         }
@@ -130,7 +130,7 @@ extension URL {
     
     // can the remote content be downloaded, ie is it not a website
     var isDownloadable: Bool {
-        let ext = self.pathExtension
+        let ext = self.pathExtension.lowercased()
         
         let docExtension = FileType(rawValue: ext)
         let photoExtension = ImageFileType(rawValue: ext)
@@ -157,7 +157,7 @@ extension URL {
 }
 
 func getDownloadURL(for url: URL) -> URL? {
-    var ext = url.pathExtension
+    var ext = url.pathExtension.lowercased()
     if ext.isEmpty {
         ext = "html"
     }
@@ -177,15 +177,11 @@ func download(url: URL) async throws {
         print("downloaded url to file", url.absoluteString, downloadPath.absoluteString)
     }
     else {
-        await withCheckedContinuation { continuation in
-            Task {
-                await Browser.shared.fetchHTML(from: url, completionHandler: { html in
-                    print("dumped html to file",url.absoluteString, downloadPath.absoluteString)
-                    try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
-                })
-                continuation.resume()
-            }
-        }
+        
+        await Browser.shared.fetchHTML(from: url, completionHandler: { html in
+            print("dumped html to file", url.absoluteString, downloadPath.absoluteString)
+            try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
+        })
     }
 }
 
@@ -201,15 +197,8 @@ func getCachedPreview(url: URL, cacheGenerator: () async -> UIImage?) async -> U
 
 func getUrlPreview(url: URL) async -> UIImage? {
     await getCachedPreview(url: url) {
-        let image = await withCheckedContinuation { continuation in
-            Task {
-                await Browser.shared.takeURLSnapshot(url) { image in
-                    continuation.resume(returning: image)
-                }
-            }
-        }
-        if let image = image {
-            ImageCache.save(image, url: url)
+        if let url = await Browser.shared.onScreenshotReady(for: url),
+           let image = UIImage(url: url) {
             return image
         }
         return nil
@@ -277,7 +266,7 @@ func extractText(url: URL) -> String? {
     
     let dataType = url.dataType
     
-    if dataType == .doc, let fileType = FileType(rawValue: url.pathExtension) {
+    if dataType == .doc, let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
         // FIXME: extract the text from image based pdfs
         if fileType == .pdf {
             return getPDFText(url: url)?.string
@@ -415,7 +404,7 @@ func indexText(attachment: Attachment) async throws {
         return
     }
     
-    let fileType = FileType(rawValue: url.pathExtension) ?? FileType.txt
+    let fileType = FileType(rawValue: url.pathExtension.lowercased()) ?? FileType.txt
     
     let index = USearchIndex.make(metric: .l2sq, dimensions: 1536, connectivity: 16, quantization: .I8)
     
@@ -476,7 +465,7 @@ func answer(query: String, url: URL, onToken: @escaping (_ token: String, _ inde
     
     let openAI = OpenAI(apiToken: OPEN_AI_KEY)
     
-    if let text = extractText(url: url), let fileType = FileType(rawValue: url.pathExtension) {
+    if let text = extractText(url: url), let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
         
         let splitter = RecursiveCharacterTextSplitter(separators: getSeparators(forLanguage: fileType), chunkSize: 6000, chunkOverlap: 250)
         
@@ -574,7 +563,9 @@ func summarize(_ text: String, onToken: @escaping (_ token: String) -> Void) asy
 }
 
 func getRequiredFiles(chatModel: ChatViewModel) async -> [URL]? {
-    let attachments = chatModel.latestAttachments
+    let attachments = chatModel.latestAttachments.filter { attachment in
+        return attachment.hasText
+    }
     
     let chatMessages = chatModel.latestAiMessages
     
@@ -643,7 +634,7 @@ func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
     for url in urls {
         if let text = extractText(url: url) {
             let encoded = encoder.encode(text: text)
-            let textURL = (url.isFileURL ? url : getDownloadURL(for: url))!.absoluteString
+            let textURL = (url.isFileURL ? url : getDownloadURL(for: url))!.lastPathComponent
             if encoded.count < 10000 {
                 totalEstimatedTokens += encoded.count
                 loaded.insert(url)
@@ -678,7 +669,9 @@ func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
 
 func getTextForChat(chatModel: ChatViewModel) async -> String? {
     
-    let attachments = chatModel.latestAttachments
+    let attachments = chatModel.latestAttachments.filter { attachment in
+        return attachment.hasText
+    }
     
     let urls = attachments.compactMap { $0.url }
     

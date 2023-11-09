@@ -46,10 +46,14 @@ class ChatViewModel: ObservableObject {
     
     var model: Model {
         if proMode {
-            return .gpt4
+            return "gpt-4-1106-preview"
         }
-        return .gpt3_5Turbo
+        return "gpt-3.5-turbo-1106"
     }
+    
+    @Published var showSettings = false
+    
+    @Published var isWide = false
     
     @Published var messages: [Message] = []
     
@@ -61,7 +65,9 @@ class ChatViewModel: ObservableObject {
     /// whether the mic is recording a user question or not
     @Published var isRecording: Bool = false
     /// say the ai answer aloud as it is recieved
-    @Published var speakAnswer: Bool = false
+    @AppStorage("speakAnswer") var speakAnswer: Bool = false
+    
+    @AppStorage("listenOnLaunch") var listenOnLaunch: Bool = false
     
     /// handles speaking sentences
     @Published var speechQueue = SpeechQueue()
@@ -73,8 +79,11 @@ class ChatViewModel: ObservableObject {
     @Published var presentedText: String = ""
     @Published var codeLanguage: String = ""
     @Published var highlightingReady: Bool = false
+    @Published var codeSelection: Range<String.Index> = "".startIndex..<"".endIndex
     
     @Published var menuShown: Bool = false
+    
+    @Published var store = StoreViewModel()
     
     /// the volume of the user's speech
     @Published var decibles: CGFloat = -160
@@ -212,7 +221,7 @@ class ChatViewModel: ObservableObject {
         
         try? content.write(to: url, atomically: true, encoding: .utf8)
         let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        UIApplication.shared.windows.first?.rootViewController?.present(av, animated: true, completion: nil)
+        Application.keyWindow?.rootViewController?.present(av, animated: true, completion: nil)
     }
     
     func saveDialog() {
@@ -418,12 +427,33 @@ class ChatViewModel: ObservableObject {
         transcript = "<< \(errorMessage) >>"
     }
     
+    func endGenerating(messageId: String?) {
+        if let id = messageId {
+            if let message = messages.first(where: { message in
+                return message.record.id == messageId
+            }) {
+                self.endGenerating(userMessage: message)
+            }
+        }
+        else {
+            self.endGenerating(userMessage: nil)
+        }
+    }
+    
     func endGenerating(userMessage: Message?) {
-        guard let userMessage = userMessage else {
+        if let message = userMessage {
+            DispatchQueue.main.async {
+                userMessage?.answering = false
+            }
             return
         }
-        DispatchQueue.main.async {
-            userMessage.answering = false
+        else {
+            let activeMessages = self.messages.filter { $0.answering }
+            DispatchQueue.main.async {
+                for message in activeMessages {
+                    message.answering = false
+                }
+            }
         }
     }
     
@@ -434,7 +464,7 @@ class ChatViewModel: ObservableObject {
         var chatMessages: [Chat] = proMode ? [
             .init(role: .system, content: """
             You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), browse the web, and send text and email messages.
-            Your goal is to accomplish user requests as quickly as possible using the functions available to you.
+            Your goal is to accomplish user requests as quickly as possible using the functions available to you while still being fun and friendly in your responses.
             
             Please obey the following rules:
             
@@ -444,12 +474,41 @@ class ChatViewModel: ObservableObject {
             4. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
             5. Read the text in images to find information like calendar events and contact information
             
+            Some examples of when to call read_files:
+            
+            Example #1:
+            user: picture.heic
+            user: add this to my calendar
+            assistant (you): read_files([picture.heic])
+            
+            Example #2:
+            user: document.pdf
+            user: what is this about?
+            assistant (you): read_files([document.pdf])
+            
+            You should only call search_contacts when someone explicitly asks for contact information.
+            If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
+            
+            Example #1:
+            user: text my mom that she needs to download my new app
+            assistant (you): sms(contact: "mom", message: "Hi mom, I love you and miss you. Can you please download my new app?")
+            
+            Example #2:
+            user: send bri's address to kelly
+            assistant (you): search_contacts(name: "bri", contact_type: "address")
+            function: [{"name": "Bri", detail: "123 address st, costa mesa, ca" }]
+            assistant (you): sms(contact: "Kelly", message: "Here's Bri's address: 123 Address St, Costa Mesa, CA")
+            
+            Example #3:
+            user: ask cat whats up
+            assistant (you): sms(name: "cat", message: "whats up")
+            
             Lastly, the current date is \(Date().formatted())
             """)
         ] : [
             .init(role: .user, content: """
             You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), browse the web, and send text and email messages.
-            Your goal is to accomplish my requests as quickly as possible using the functions available to you.
+            Your goal is to accomplish my requests as quickly as possible using the functions available to you while still being fun and friendly in your responses.
             
             Please obey the following rules:
             
@@ -462,14 +521,31 @@ class ChatViewModel: ObservableObject {
             Some examples of when to call read_files:
             
             Example #1:
-            user: invite.heic
-            user: add this to my calendar
-            assistant (you): read_files([invite.heic])
+            user: picture.heic
+            user: ex. add to calendar, add this to my calendar, etc
+            assistant (you): read_files([picture.heic])
             
             Example #2:
             user: document.pdf
             user: what is this about?
             assistant (you): read_files([document.pdf])
+            
+            You should only call search_contacts when someone explicitly asks for contact information.
+            If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
+            
+            Example #1:
+            user: text my mom that she needs to download my new app
+            assistant (you): sms(contact: "mom", message: "Hi mom, I love you and miss you. Can you please download my new app?")
+            
+            Example #2:
+            user: send bri's address to kelly
+            assistant (you): search_contacts(name: "bri", contact_type: "address")
+            function: [{"name": "Bri", detail: "123 address st, costa mesa, ca" }]
+            assistant (you): sms(contact: "Kelly", message: "Here's Bri's address: 123 Address St, Costa Mesa, CA")
+            
+            Example #3:
+            user: ask cat whats up
+            assistant (you): sms(name: "cat", message: "whats up")
             
             Lastly, the current date is \(Date().formatted())
             """),
@@ -481,10 +557,6 @@ class ChatViewModel: ObservableObject {
         let aiMessage: Message
         
         var lastUserMessage = lastUserMessage
-        
-        DispatchQueue.main.async { [lastUserMessage] in
-            lastUserMessage?.answering = true
-        }
         
         if let message = lastUserMessage {
             
@@ -521,7 +593,7 @@ class ChatViewModel: ObservableObject {
         }
         else {
             
-            lastUserMessage = messages.last
+            lastUserMessage = messages.reversed().first(where: { $0.record.role == .user })
             
             chatMessages.append(contentsOf: messages.compactMap { $0.ai })
             
@@ -542,11 +614,13 @@ class ChatViewModel: ObservableObject {
             }
         }
         
+        DispatchQueue.main.async { [lastUserMessage] in
+            lastUserMessage?.answering = true
+        }
+        
         self.latestAiMessages = chatMessages
         
-        self.latestAttachments = messages.reversed().flatMap { $0.attachments }.filter { attachment in
-            return attachment.hasText
-        }
+        self.latestAttachments = messages.reversed().flatMap { $0.attachments }
         
 //        if let text = await getTextForChat(chatModel: self), !text.isEmpty, let message = chatMessages.last?.content {
 //            
@@ -571,6 +645,11 @@ class ChatViewModel: ObservableObject {
         let openAI = OpenAI(apiToken: OPEN_AI_KEY)
         
         openAI.chatsStream(query: query) { partialResult in
+            
+            if let answering = lastUserMessage?.answering, !answering {
+                return
+            }
+            
             switch partialResult {
             case .success(let result):
                 if let text = result.choices[0].delta.content {
@@ -582,16 +661,22 @@ class ChatViewModel: ObservableObject {
                 else if let functionCall = result.choices[0].delta.functionCall {
                     
                     if let name = functionCall.name {
+                        #if DEBUG
                         print("function call chunk", name)
+                        #endif
                         call.name += name
                     }
                     if let arguments = functionCall.arguments {
+                        #if DEBUG
                         print("function arg chunk", arguments)
+                        #endif
+                        
                         call.arguments += arguments
                         
                         if call.nameCompleted {
                             DispatchQueue.main.async {
                                 aiMessage.functionLog += arguments
+                                aiMessage.content += arguments
                             }
                         }
                         
@@ -614,7 +699,12 @@ class ChatViewModel: ObservableObject {
             case .failure(let error):
                 print(error)
             }
-        } completion: { [aiMessage] error in
+        } completion: { [aiMessage, lastUserMessage] error in
+            
+            if let answering = lastUserMessage?.answering, !answering {
+                return
+            }
+            
             if let function = FunctionCall(rawValue: call.name) {
                 
                 aiMessage.record.functionCallName = call.name
@@ -657,9 +747,9 @@ class ChatViewModel: ObservableObject {
                             self.messages.append(functionMessage)
                             self.endGenerating(userMessage: lastUserMessage)
                             Task {
-                                async let saveAiMessage = aiMessage.save()
+                                async let saveAiMessage: () = aiMessage.save()
                                 
-                                async let saveFunctionMessage = functionMessage.save()
+                                async let saveFunctionMessage: () = functionMessage.save()
                                 
                                 await saveAiMessage
                                 await saveFunctionMessage
@@ -717,8 +807,8 @@ class ChatViewModel: ObservableObject {
 //                                    self.messages.append(functionMessage)
                                 self.endGenerating(userMessage: lastUserMessage)
                                 Task {
-                                    async let saveAiMessage = aiMessage.save()
-                                    async let saveFunctionMessage = functionMessage.save()
+                                    async let saveAiMessage: () = aiMessage.save()
+                                    async let saveFunctionMessage: () = functionMessage.save()
                                     await saveAiMessage
                                     await saveFunctionMessage
                                 }
@@ -735,9 +825,8 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(SearchArgs.self)
                         print(args)
                         DispatchQueue.main.async {
+                            
                             aiMessage.functionLog += "\nSearching: \(args.query)"
-                            
-                            
                             
                             self.endGenerating(userMessage: lastUserMessage)
                             Task {
@@ -753,7 +842,7 @@ class ChatViewModel: ObservableObject {
                     do {
                         let args = try call.toArgs(SearchContactsArgs.self)
                         print(args)
-                        DispatchQueue.main.async { [lastUserMessage] in
+                        DispatchQueue.main.async {
                             
                             aiMessage.functionLog += "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
 
@@ -817,7 +906,7 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(SummarizeDocumentsArgs.self)
                         let urls = args.files.compactMap { filePath -> URL? in
                             if let attachment = self.latestAttachments.first(where: { a in
-                                a.dataRecord.name == filePath
+                                a.dataRecord.name == filePath && a.hasText
                             }) {
                                 return attachment.url
                             }
@@ -827,7 +916,7 @@ class ChatViewModel: ObservableObject {
                             print("No valid files to summarize")
                             return
                         }
-                        Task { [lastUserMessage] in
+                        Task {
                             for url in urls {
                                 let text = extractText(url: url)
                                 if let text = text {
@@ -846,7 +935,7 @@ class ChatViewModel: ObservableObject {
                                 aiMessage.answering = false
                             }
                             self.endGenerating(userMessage: lastUserMessage)
-                            async let saveAiMessage = aiMessage.save()
+                            async let saveAiMessage: () = aiMessage.save()
                             await saveAiMessage
                             
                         }
@@ -888,11 +977,11 @@ class ChatViewModel: ObservableObject {
                         
                         let functionMessage = Message(record: functionMessageRecord)
                         
-                        Task { [lastUserMessage] in
+                        Task {
                             
                             let urls = files.compactMap { filePath -> URL? in
                                 if let attachment = self.latestAttachments.first(where: { a in
-                                    a.dataRecord.name == filePath
+                                    a.dataRecord.name == filePath && a.hasText
                                 }) {
                                     return attachment.url
                                 }
@@ -907,23 +996,25 @@ class ChatViewModel: ObservableObject {
                                 functionMessage.content = text
                             }
                             
-                            self.messages.append(functionMessage)
-                            
-                            self.endGenerating(userMessage: lastUserMessage)
-                            
-                            async let saveAiMessage = aiMessage.save()
-                            
-                            async let saveFunctionMessage = functionMessage.save()
-                            
-                            await saveAiMessage
-                            
-                            await saveFunctionMessage
-                            
-                            await self.callChat()
-                            
+                            DispatchQueue.main.async {
+                                aiMessage.answering = false
+                                self.messages.append(functionMessage)
+                                
+                                Task {
+                                    async let saveAiMessage: () = aiMessage.save()
+                                    
+                                    async let saveFunctionMessage: () = functionMessage.save()
+                                    
+                                    await saveAiMessage
+                                    
+                                    await saveFunctionMessage
+                                    
+                                    print("calling chat again")
+                                    
+                                    await self.callChat()
+                                }
+                            }
                         }
-                        
-                        
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")
@@ -934,9 +1025,21 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(CreateCalendarEventArgs.self)
                         
                         if let event = Events.shared.createEvent(args: args) {
+                            
                             print("event generated", event)
-//                            aiMessage.
+                            
+                            
                         }
+                        DispatchQueue.main.async {
+                            aiMessage.answering = false
+                            Task {
+                                async let saveAiMessage: () = aiMessage.save()
+                                
+                                await saveAiMessage
+                            }
+                        }
+                        
+                        self.endGenerating(userMessage: lastUserMessage)
                     }
                     catch {
                         print("Failed to decode JSON: \(error)")
@@ -981,11 +1084,19 @@ class ChatViewModel: ObservableObject {
                message.record.id == lastEdited
            }) {
             let lastEditedMessage = messages[lastEditedMessageIndex]
+            let text = lastEditedMessage.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else {
+                return
+            }
             let nextIndex = lastEditedMessageIndex + 1
             let nextMessage: Message? = nextIndex < messages.count ? messages[nextIndex] : nil
             
             DispatchQueue.main.async {
+                lastEditedMessage.content = text
+                lastEditedMessage.record.model = self.model
                 nextMessage?.content = ""
+                nextMessage?.functionLog = ""
+                nextMessage?.functionType = nil
                 Task {
                     await self.callChat(at: lastEditedMessage)
                 }
@@ -996,12 +1107,20 @@ class ChatViewModel: ObservableObject {
             }
         }
         else {
+            
+            let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            guard !text.isEmpty else {
+                return
+            }
+            
             let userMessageRecord = MessageRecord(
                 chatId: self.id,
                 createdAt: Date(),
-                content: transcript,
+                content: text,
                 role: .user,
-                messageType: .text
+                messageType: .text,
+                model: self.model
             )
             
             let userMessage = Message(record: userMessageRecord)

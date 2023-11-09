@@ -21,6 +21,10 @@
 	</array>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.me.syousif.iAsk</string>
+	</array>
 	<key>com.apple.security.assets.movies.read-write</key>
 	<true/>
 	<key>com.apple.security.assets.music.read-write</key>

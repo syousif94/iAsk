@@ -81,7 +81,7 @@ class HistoryViewModel: ObservableObject {
     
     func setupSearchHandler() {
         let searchCancellable = $searchValue
-                    .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
+                    .debounce(for: .seconds(0.15), scheduler: DispatchQueue.main)
                     .removeDuplicates()
                     .sink { [weak self] searchText in
                         self?.search(text: searchText)
@@ -143,15 +143,6 @@ class HistoryViewModel: ObservableObject {
         }
         
         messageRecordSubscription.store(in: &cancellables)
-//
-//        let chatRecordSubscription = ChatRecord.changePublisher(in: Database.shared.db).debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
-//            .sink { [self] changes in
-//            Task {
-//                await self.updateChatIndex()
-//            }
-//        }
-//
-//        chatRecordSubscription.store(in: &cancellables)
     }
     
     func updateChatIndex()  async {
@@ -167,6 +158,8 @@ class HistoryViewModel: ObservableObject {
         guard let newMessages = newMessages else {
             return
         }
+        
+       
         
         for messageRecord in newMessages.reversed() {
             let message = Message(record: messageRecord)
@@ -188,8 +181,9 @@ class HistoryViewModel: ObservableObject {
                     }
                 }
             }
-            else if let chatRecord = try? await ChatRecord.read(from: Database.shared.db, id: messageRecord.chatId) {
-                let chatLog = ChatLog(record: chatRecord, messages: [message])
+            else if let chatRecord = try? await ChatRecord.read(from: Database.shared.db, id: messageRecord.chatId), let messages = await Message.loadForChatId(messageRecord.chatId) {
+                let chatLog = ChatLog(record: chatRecord, messages: messages)
+                
                 chatLogs.updateValue(chatLog, forKey: chatLog.record.id, insertingAt: 0)
             }
         }

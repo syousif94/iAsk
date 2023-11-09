@@ -18,6 +18,7 @@ import CodeEditor
 import WrappingHStack
 import AlertToast
 import NanoID
+import SwiftDate
 
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
@@ -61,61 +62,74 @@ struct QuestionInput: View {
 
         let placeholder = "What can I help you with?"
         
-        TextField(placeholder, text: $transcript, axis: .vertical)
-            .foregroundColor(isEmptySpeech ? Color.gray : Color.primary)
-            .padding()
-            .padding(.trailing, 40)
-            .font(.custom("HelveticaNeue-Bold", size: 18))
-            .focused($isFocused)
-            .overlay(alignment: .topTrailing) {
-                AnsweringView(isAnimating: $isAnswering)
-                    .padding()
-            }
-            .onReceive(Just(transcript)) { newValue in
-                let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-                let matches = detector?.matches(in: newValue, options: [], range: NSMakeRange(0, newValue.utf16.count))
+        ZStack(alignment: .trailing) {
+            TextField(placeholder, text: $transcript, axis: .vertical)
+                .foregroundColor(isEmptySpeech ? Color.gray : Color.primary)
+                .padding()
+                .padding(.trailing, 40)
+                .font(.system(size: 20, weight: .bold))
+                .focused($isFocused)
+                .onChange(of: transcript, { oldValue, newValue in
+                    let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+                    let matches = detector?.matches(in: newValue, options: [], range: NSMakeRange(0, newValue.utf16.count))
 
-                var urls = [URL]()
-                var needsPasteboard = false
-                for match in matches ?? [] {
-                    if let url = match.url {
-                        print("URL Detected: \(url)")
-                        if !url.isFileURL || fileExists(at: url) {
-                            urls.append(url)
+                    var urls = [URL]()
+                    var needsPasteboard = false
+                    for match in matches ?? [] {
+                        if let url = match.url {
+                            print("URL Detected: \(url)")
+                            
+                            let matchedString = (newValue as NSString).substring(with: match.range)
+                            
+                            let lastWords = splitString(mainString: oldValue, separator: " ")
+                            
+                            for word in lastWords {
+                                if isSubstring(mainString: matchedString, subString: word) || isSubstring(mainString: word, subString: matchedString) {
+                                    return
+                                }
+                            }
+                            
+                            if !url.isFileURL || fileExists(at: url) {
+                                urls.append(url)
+                            }
+                            else if !needsPasteboard {
+                                needsPasteboard = true
+                            }
+                            transcript = newValue.replacingOccurrences(of: url.absoluteString, with: "")
                         }
-                        else if !needsPasteboard {
-                            needsPasteboard = true
-                        }
-                        transcript = transcript.replacingOccurrences(of: url.absoluteString, with: "")
                     }
-                }
 
-                
-                Task {
-                    var urls = urls
-                    if needsPasteboard {
-                        let pasteboard = UIPasteboard.general
-                        if let localized = await localizeURLs(for: pasteboard.itemProviders) {
-                            urls = localized
+                    
+                    Task {
+                        var urls = urls
+                        if needsPasteboard {
+                            let pasteboard = UIPasteboard.general
+                            if let localized = await localizeURLs(for: pasteboard.itemProviders) {
+                                urls = localized
+                            }
+                        }
+                        if !urls.isEmpty {
+                            await chat.importURLs(urls: urls)
                         }
                     }
-                    if !urls.isEmpty {
-                        await chat.importURLs(urls: urls)
+                })
+                .onChange(of: isFocused) { oldValue, newValue in
+                    if newValue {
+                        DispatchQueue.main.async {
+                            chat.lastEdited = messageId
+                        }
                     }
                 }
-            }
-            .onChange(of: isFocused) { newValue in
-                if newValue {
-                    DispatchQueue.main.async {
-                        chat.lastEdited = messageId
+                .onReceive(focusInputNotification.publisher) { id in
+                    if messageId == id {
+                        isFocused = true
                     }
                 }
-            }
-            .onReceive(focusInputNotification.publisher) { id in
-                if messageId == id {
-                    isFocused = true
-                }
-            }
+            
+            AnsweringView(isAnimating: $isAnswering, messageId: messageId)
+                .frame(alignment: .topTrailing)
+                .padding()
+        }
     }
 }
 
@@ -147,9 +161,12 @@ struct ChatView: View {
                             
                             ForEach(chat.messages, id: \.record.id) { message in
                                 MessageView(message: message, functionType: message.functionType, answering: message.answering)
+                                    .padding(.horizontal, chat.isWide ? 40 : 0)
+                                    
                             }
                             
                             QuestionInput(transcript: $chat.transcript, isFocused: _isFocused, isAnswering: .constant(false))
+                                .padding(.horizontal, chat.isWide ? 40 : 0)
                                 .onAppear {
                                     if Application.isCatalyst {
                                         isFocused = true
@@ -175,6 +192,7 @@ struct ChatView: View {
                             }
                             .frame(height: geometry.size.height * 0.7)
                         }
+                        .padding(.top, chat.isWide ? 8 : 0)
                         .id("top")
                         .frame(idealWidth: geometry.size.width, maxHeight: .infinity, alignment: .top)
                         
@@ -297,45 +315,41 @@ struct ChatView: View {
                 ? Color(hex: "#333333")
                 : Color(hex: "#ffffff")
             )
+            .sheet(isPresented: $chat.showSettings,  content: {
+                SettingsView()
+            })
             .sheet(isPresented: $chat.isPresentingText, content: {
-                ZStack(alignment: .topTrailing) {
+                NavigationStack {
                     VStack(alignment: .leading, spacing: 0) {
                         GeometryReader { geometry in
-                            CodeEditor(source: chat.presentedText, language: CodeEditor.Language(rawValue: chat.codeLanguage), theme: colorScheme == .dark ? CodeEditor.ThemeName(rawValue: "monokai") : CodeEditor.ThemeName(rawValue: "xcode"))
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                            
+                            ScrollView(.horizontal) {
+                                CodeEditor(
+                                    source: $chat.presentedText,
+                                    selection: $chat.codeSelection,
+                                    language: CodeEditor.Language(rawValue: chat.codeLanguage),
+                                    theme: colorScheme == .dark ? CodeEditor.ThemeName(rawValue: "monokai") : CodeEditor.ThemeName(rawValue: "xcode")
+                                )
+                                .frame(minWidth: geometry.size.width * 4, minHeight: geometry.size.height)
+                            }
+                            .frame(width: geometry.size.width, height: geometry.size.height)
                         }
                     }
-                    .padding(.top, 30)
-
-                    HStack {
-                        Spacer()
-                        if Application.isCatalyst {
+                    .toolbar(content: {
+                        ToolbarItemGroup(placement: .bottomBar) {
+                            Button("Select All") {
+                                chat.codeSelection = chat.presentedText.startIndex..<chat.presentedText.endIndex
+                            }
+                            Button("Copy") {
+                                
+                            }
+                            Spacer()
                             Button("Done") {
                                 chat.isPresentingText.toggle()
                             }
-                            .padding()
                         }
-                    }
-                    
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Button("Select All") {
-                            }
-                            .padding()
-                            Spacer()
-                            Button("Copy") {
-                            }
-                            .padding()
-                            Button("Save") {
-                            }
-                            .padding()
-                        }
-                    }
-                    
-
-                }.background(Color(hex: colorScheme == .dark ? "#272822" : "#ffffff", alpha: 1))
+                    })
+                }
+                .background(Color(hex: colorScheme == .dark ? "#272822" : "#ffffff", alpha: 1))
             })
             
         }
@@ -563,9 +577,7 @@ struct MessageView: View {
     
     @State var answering: Bool
     
-    var isPad: Bool {
-        return UIDevice.current.userInterfaceIdiom == .pad || Application.isCatalyst
-    }
+    let isPad = Application.isPad
     
     var markdownView: some View {
         Markdown(message.content)
@@ -574,11 +586,13 @@ struct MessageView: View {
             .frame(alignment: .topLeading)
             .multilineTextAlignment(.leading)
             .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
+            .markdownBlockStyle(\.table, body: { configuration in
+                configuration.label.padding(.top, 6)
+            })
             .markdownBlockStyle(\.paragraph, body: { configuration in
                 VStack {
                     configuration.label
                         .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
-                        
                 }
             })
             .markdownBlockStyle(\.codeBlock, body: { configuration in
@@ -624,27 +638,40 @@ struct MessageView: View {
             }
     }
     
+    var hasCustomView: Bool {
+        return message.record.role == .assistant && (functionType == .createCalendarEvent || functionType == .sms || functionType == .readFiles)
+    }
+    
     var body: some View {
-        
-        if message.record.messageType == .message {
-            EditableMessageView(message: message, messageContent: "")
+        if hasCustomView {
+            if functionType == .readFiles {
+                ReadingFilesMessageView(message: message)
+            }
+            
+            if functionType == .sms {
+                EditableMessageView(message: message)
+            }
+            
+            if functionType == .createCalendarEvent {
+                EventsMessageView(message: message)
+            }
         }
-        
         if message.record.messageType == .select {
             ChoiceMessageView(message: message)
         }
- 
-            if message.record.messageType == .data {
-                DataMessageView(attachments: $message.attachments, message: message)
-                    .padding(.horizontal)
-            }
-            
-            if message.record.role == .user && message.record.messageType == .text {
-                UserMessageView(messageId: message.record.id, transcript: $message.content, answering: $message.answering, isFocused: _isFocused)
-            }
-            
-            if message.record.role == .assistant {
-                Group {
+        if message.record.messageType == .data {
+            DataMessageView(attachments: $message.attachments, message: message)
+                .padding(.horizontal)
+        }
+        if message.record.role == .user && message.record.messageType == .text {
+            UserMessageView(messageId: message.record.id, transcript: $message.content, answering: $answering, isFocused: _isFocused)
+                .onChange(of: message.answering, { oldValue, newValue in
+                    print("answering changed", newValue)
+                    self.answering = newValue
+                })
+        }
+        if message.record.role == .assistant, !hasCustomView {
+                VStack {
                     // the message from the ai is a function call
                     // render the log from the function call
                     if functionType != nil {
@@ -666,30 +693,208 @@ struct MessageView: View {
                                 .background(Color(hex: "#000000", alpha: 0.1))
                                 .clipShape(RoundedCornersShape(corners: [.bottomLeft, .bottomRight], radius: 8))
                                 .frame(maxWidth: .infinity, maxHeight: 90)
-                                .onChange(of: message.functionLog) { newValue in
+                                .onChange(of: message.functionLog, { oldValue, newValue in
                                     proxy.scrollTo("log", anchor: .bottom)
-                                }
+                                })
                                 .onAppear {
                                     proxy.scrollTo("log", anchor: .bottom)
                                 }
                             }
                         }
                         .padding(.horizontal)
+                        .padding(.bottom)
                     }
-                    markdownView
+                    if functionType == nil {
+                        markdownView
+                    }
+                    
                 }
-                .onChange(of: message.answering, perform: { newValue in
-                    print("answering changed", newValue)
+                .onChange(of: message.answering, { oldValue, newValue in
                     self.answering = newValue
                 })
-                .onChange(of: message.functionType, perform: { newValue in
-                    print("function type changed", newValue)
+                .onChange(of: message.functionType, { oldValue, newValue in
                     self.functionType = newValue
                 })
+            }
+        }
+}
+
+struct ReadingFilesMessageView: View {
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    var message: Message
+    
+    @State var answering: Bool = true
+    
+    var body: some View {
+        HStack {
+            if answering {
+                ProgressView()
+                    .tint(.white)
+                    .padding()
+                
+                Text("Reading Files")
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
                 
                 
             }
+            else {
+                Image(systemName: "checkmark")
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding()
+                Text("Read Files")
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+            }
         }
+        .background(.green)
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.bottom)
+        .onReceive(message.$answering){ newValue in
+            answering = newValue
+        }
+    }
+}
+
+struct EventsMessageView: View {
+    
+    var message: Message
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    @State var answering: Bool = true
+    
+    @State var location: String = ""
+    @State var title: String = ""
+    @State var month: String = ""
+    @State var date: String = ""
+    @State var day: String = ""
+    @State var startTime: String = ""
+    @State var endTime: String = ""
+    @State var duration: String = ""
+    @State var timeAway: String = ""
+    
+    enum JsonKeys: String, CaseIterable {
+        case location
+        case title
+        case startDate
+        case endDate
+        case allDay
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text(month)
+                            .font(.caption.bold())
+                            .padding(.vertical, 4)
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 60)
+                    .background(.red)
+                    .clipShape(RoundedCornersShape(corners: [.topLeft, .topRight], radius: 8))
+                    HStack {
+                        Text(date)
+                            .font(.title)
+                            .foregroundStyle(.black)
+                    }
+                    .frame(width: 60, height: 50)
+                    .background(.white)
+                    .clipShape(RoundedCornersShape(corners: [.bottomLeft, .bottomRight], radius: 8))
+                }
+                .padding()
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title)
+                        .font(.title2)
+                    Text("\(startTime) - \(endTime) (\(timeAway))")
+                        .font(.caption)
+                        .padding(.top, 2)
+                    Text(location)
+                        .font(.caption)
+                        .padding(.top, 1)
+                }
+                .padding(.trailing)
+                .padding(.vertical)
+                Spacer()
+            }
+            .background(Color(hex:"#000000", alpha: 0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            
+//            if !answering {
+//                HStack {
+//                    Spacer()
+//                    Button("Save") {
+//                        
+//                    }
+//                    .padding()
+//                    Button("Edit") {
+//                        
+//                    }
+//                    .padding()
+//                }
+//            }
+        }
+        .padding(.horizontal)
+        .padding(.bottom)
+        .onReceive(message.$answering){ newValue in
+            answering = newValue
+        }
+        .onReceive(message.$content.debounce(for: 0.016, scheduler: DispatchQueue.main)) { text in
+            
+//            var start: DateInRegion?
+//            var end: DateInRegion?
+            
+            for key in JsonKeys.allCases {
+                if let extracted = extractJSONValue(from: String(text), forKey: key.rawValue) {
+                    switch key {
+                    case .allDay:
+                        let val = extracted == "true"
+                    case .location:
+                        if extracted != location {
+                            location = extracted
+                        }
+                    case .title:
+                        if extracted != title {
+                            title = extracted
+                        }
+                    case .startDate:
+                        if let startDate = extracted.toDate() {
+//                            start = startDate
+                            startTime = startDate.toFormat("h:mm a")
+                            month = startDate.toFormat("MMM")
+                            date = startDate.toFormat("d")
+                            day = startDate.toFormat("EEE")
+                            timeAway = startDate.toRelative(since: nil, dateTimeStyle: .numeric, unitsStyle: .short)
+                        }
+                    case .endDate:
+                        if let endDate = extracted.toDate() {
+//                            end = endDate
+                            endTime = endDate.toFormat("h:mm a")
+                        }
+                    }
+                }
+            }
+            
+//            if let start = start, let end = end {
+//                duration = end.timeIntervalSince(start).toString  {
+//                    $0.maximumUnitCount = 4
+//                    $0.allowedUnits = [.hour]
+//                    $0.collapsesLargestUnit = true
+//                    $0.unitsStyle = .abbreviated
+//                }
+//            }
+            
+        }
+    }
 }
 
 struct EditableMessageView: View {
@@ -698,7 +903,16 @@ struct EditableMessageView: View {
     
     @Environment(\.colorScheme) var colorScheme
     
-    @State var messageContent: String
+    @State var answering: Bool = true
+    
+    @State var contact: String = ""
+    @State var messageText: String = ""
+    
+    enum JsonKeys: String, CaseIterable {
+        case contact
+        case phoneNumber
+        case message
+    }
     
     var body: some View {
         VStack {
@@ -712,12 +926,40 @@ struct EditableMessageView: View {
                 }
                 .background(Color(hex: "#000000", alpha: 0.2))
                 .clipShape(RoundedCornersShape(corners: [.topLeft, .topRight], radius: 8))
-                TextField("Message", text: $messageContent)
+                TextField("", text: $contact)
+                    .background(Color(hex: "#000000", alpha: 0.1))
+                    .frame(maxWidth: .infinity)
+                TextField("", text: $messageText)
                     .background(Color(hex: "#000000", alpha: 0.1))
                     .clipShape(RoundedCornersShape(corners: [.bottomLeft, .bottomRight], radius: 8))
-                    .frame(maxWidth: .infinity, maxHeight: 90)
+                    .frame(maxWidth: .infinity)
             }
             .padding(.horizontal)
+        }
+        .onReceive(message.$answering){ newValue in
+            answering = newValue
+        }
+        .onReceive(message.$content.debounce(for: .milliseconds(16), scheduler: DispatchQueue.main)) { text in
+            
+            for key in JsonKeys.allCases {
+                if let extracted = extractJSONValue(from: String(text), forKey: key.rawValue) {
+                    switch key {
+                    case .phoneNumber:
+                        if extracted != contact {
+                            contact = extracted
+                        }
+                    case .contact:
+                        if extracted != contact {
+                            contact = extracted
+                        }
+                    case .message:
+                        if extracted != messageText {
+                            messageText = extracted
+                        }
+                    }
+                }
+            }
+
         }
     }
 }
@@ -781,9 +1023,7 @@ struct MarkdownCodeView: View {
         self.configuration = configuration
     }
     
-    var isPad: Bool {
-        return UIDevice.current.userInterfaceIdiom == .pad || Application.isCatalyst
-    }
+    let isPad = Application.isPad
     
     var body: some View {
         innerView
@@ -881,66 +1121,68 @@ struct DataMessageView: View {
     @State var height: CGFloat? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { proxy in
-                WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
-                    AttachmentView(message: message, attachment: attachment)
-                }
-                .onChange(of: attachments, { oldValue, newValue in
-                    if attachments.isEmpty {
-                        height = -10
-                        return
+        if !attachments.isEmpty {
+            VStack(spacing: 0) {
+                GeometryReader { proxy in
+                    WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
+                        AttachmentView(message: message, attachment: attachment)
                     }
-                    print("height of data", proxy.size.height)
-                    height = proxy.size.height
-                    
-                    let perRow = floor(proxy.size.width / (140 + 10))
-                    
-                    print("per row", perRow)
-                    
-                    let rows = ceil(CGFloat(newValue.count) / perRow)
-                    
-                    print("rows", rows)
-                    
-                    let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
-                    
-                    print("ideal height", idealHeight)
-                    
-                    if height == nil || height! < idealHeight {
-                        height = idealHeight
-                    }
-                    
-                    print("height of data", height)
-                })
-                .onAppear {
-                    if attachments.isEmpty {
-                        height = -10
-                        return
-                    }
-                    print("height of data at start", proxy.size.height)
-                    height = proxy.size.height
-                    
-                    let perRow = floor(proxy.size.width / (140 + 10))
-                    
-                    print("per row", perRow)
-                    
-                    let rows = ceil(CGFloat(attachments.count) / perRow)
-                    
-                    print("rows", rows)
-                    
-                    let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
-                    
-                    print("ideal height", idealHeight)
-                    
-                    if height == nil || height! < idealHeight {
-                        height = idealHeight
-                    }
+                    .onChange(of: attachments, { oldValue, newValue in
+                        if attachments.isEmpty {
+                            height = -10
+                            return
+                        }
+                        print("height of data", proxy.size.height)
+                        height = proxy.size.height
+                        
+                        let perRow = floor(proxy.size.width / (140 + 10))
+                        
+                        print("per row", perRow)
+                        
+                        let rows = ceil(CGFloat(newValue.count) / perRow)
+                        
+                        print("rows", rows)
+                        
+                        let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                        
+                        print("ideal height", idealHeight)
+                        
+                        if height == nil || height! < idealHeight {
+                            height = idealHeight
+                        }
+                        
+                        print("height of data", height)
+                    })
+                    .onAppear {
+                        if attachments.isEmpty {
+                            height = -10
+                            return
+                        }
+                        print("height of data at start", proxy.size.height)
+                        height = proxy.size.height
+                        
+                        let perRow = floor(proxy.size.width / (140 + 10))
+                        
+                        print("per row", perRow)
+                        
+                        let rows = ceil(CGFloat(attachments.count) / perRow)
+                        
+                        print("rows", rows)
+                        
+                        let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                        
+                        print("ideal height", idealHeight)
+                        
+                        if height == nil || height! < idealHeight {
+                            height = idealHeight
+                        }
 
-                    print("height of data at start", height)
+                        print("height of data at start", height)
+                    }
                 }
             }
+            .frame(minHeight: height ?? 160, maxHeight: .infinity)
         }
-        .frame(minHeight: height, maxHeight: .infinity)
     }
 }
 
@@ -1014,6 +1256,7 @@ struct AttachmentView: View {
         ZStack {
             AttachmentPreview(message: message, attachment: $attachment, sideLength: $sideLength)
                 .frame(width: sideLength, height: sideLength * 1.2)
+                
             
             VStack(alignment: .leading) {
                 Spacer()
@@ -1066,7 +1309,7 @@ struct AttachmentView: View {
             Button {
                 attachment.open()
             } label: {
-                Label("Open", systemImage: "square.and.arrow.down")
+                Label("View", systemImage: "eye")
             }
             Button {
                 attachment.saveDialog()
@@ -1102,13 +1345,6 @@ struct AttachmentView: View {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
         }
-        .onDrag {
-            guard let url = attachment.url, let provider = NSItemProvider(contentsOf: url) else {
-                return NSItemProvider()
-            }
-            provider.suggestedName = attachment.dataRecord.name
-            return provider
-        }
         .onAppear {
             if attachment.previewImage == nil, attachment.hasPreview {
                 attachment.generatePreviewImage()
@@ -1118,13 +1354,38 @@ struct AttachmentView: View {
     
     var body: some View {
         if message.record.role == .function {
-            VStack {
+            Button(action: {
+                attachment.open()
+            }) {
                 innerBody
             }
+            .buttonStyle(.plain)
             .padding(.bottom)
+            .onDrag {
+                guard let url = attachment.url, let provider = NSItemProvider(contentsOf: url) else {
+                    return NSItemProvider()
+                }
+                provider.suggestedName = attachment.dataRecord.name
+                return provider
+            }
         }
         else {
-            innerBody
+            Button(action: {
+                attachment.open()
+            }) {
+                innerBody
+            }
+            .buttonStyle(.plain)
+            .onDrag {
+                guard let url = attachment.url, let provider = NSItemProvider(contentsOf: url) else {
+                    return NSItemProvider()
+                }
+                provider.suggestedName = attachment.dataRecord.name
+                return provider
+            }
+            .onTapGesture {
+                ("tapped attachment")
+            }
         }
     }
 }
@@ -1132,6 +1393,9 @@ struct AttachmentView: View {
 struct AnsweringView: View {
     @Binding var isAnimating: Bool
     @State var opacity: Double = 1
+    var messageId: String?
+    
+    @EnvironmentObject var chat: ChatViewModel
 
     var body: some View {
         if isAnimating {
@@ -1148,8 +1412,10 @@ struct AnsweringView: View {
                     }
                 }
             }
+            .background(Color(cgColor: UIColor.backgroundColor.cgColor))
             .onTapGesture {
-                print("cancel message")
+                print("cancel message", messageId)
+                chat.endGenerating(messageId: messageId)
             }
             .onAppear {
                 opacity = 0

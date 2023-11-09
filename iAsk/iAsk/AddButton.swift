@@ -34,7 +34,21 @@ struct AddButton<Content: View>: View {
         Menu() {
             
             Button(action: {
-
+                chat.menuShown = false
+                Task {
+                    await chat.resetChat()
+                    DispatchQueue.main.async {
+                        self.chat.scrollProxy?.scrollTo("top", anchor: .top)
+                    }
+                    
+                }
+            }) {
+                Label("New Chat", systemImage: "plus.bubble")
+            }
+            
+            Button(action: {
+                chat.menuShown = false
+                chat.showSettings = true
             }) {
                 Label("Settings", systemImage: "gearshape")
             }
@@ -60,14 +74,15 @@ struct AddButton<Content: View>: View {
                 Label("Browser", systemImage: "safari")
             }
             
-            Button(action: {
-                showCameraNotification.send(true)
-                chat.menuShown = false
-            }) {
-                Label("Camera", systemImage: "camera")
+            if !Application.isCatalyst {
+                Button(action: {
+    //                showCameraNotification.send(true)
+                    chat.menuShown = false
+                    scrollToPageNotification.send((2, true))
+                }) {
+                    Label("Camera", systemImage: "camera")
+                }
             }
-            
-            
             
             Button(action: {
                 showPhotoPickerNotification.send(true)
@@ -97,18 +112,7 @@ struct AddButton<Content: View>: View {
                 Label("Use GPT4", systemImage: "brain.head.profile")
             }
             
-            Button(action: {
-                chat.menuShown = false
-                Task {
-                    await chat.resetChat()
-                    DispatchQueue.main.async {
-                        self.chat.scrollProxy?.scrollTo("top", anchor: .top)
-                    }
-                    
-                }
-            }) {
-                Label("New Chat", systemImage: "plus.bubble")
-            }
+            
             
             
             

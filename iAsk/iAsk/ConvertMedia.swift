@@ -9,6 +9,7 @@ import Foundation
 import FFmpeg_Kit
 import NanoID
 import ImageIO
+import UIKit
 
 enum ConvertError: Error {
     case invalidURL
@@ -23,20 +24,29 @@ extension ConvertMediaArgs.ItemArgs {
     
     func toFFmpegConfig(for attachments: [Attachment]? = nil) -> FFmpegConfig? {
         
-        // this is potentially truncated to just the file name
-        
         guard var filePath = self.inputFilePath else {
             return nil
         }
         
+        if filePath.contains("file_path:") {
+            filePath = filePath.replacingOccurrences(of: "file_path:", with: "")
+        }
+        if filePath.contains("/"), let lastComponent = filePath.split(separator: "/").last {
+            filePath = String(lastComponent)
+        }
+        
+        filePath = filePath.removingPercentEncoding ?? filePath
+        
+        filePath = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        
         if let attachments = attachments,
-           let attachment = attachments.first { a in
-            a.dataRecord.name == filePath
-        } {
+           let attachment = attachments.first(where: { a in
+               a.dataRecord.name == filePath
+           }) {
             filePath = attachment.dataRecord.path
         }
         
-        guard let url = URL(string: filePath) else {
+        guard var url = URL(string: filePath) else {
             return nil
         }
         
@@ -54,19 +64,41 @@ extension ConvertMediaArgs.ItemArgs {
             outputExtension = "m4a"
         }
         
-        if url.pathExtension == "png" {
+        let lowercasedInputPathExt = url.pathExtension.lowercased()
+        
+        if lowercasedInputPathExt == "png" {
             if isAPNG(url: url) {
                 print("Oh no, an animated PNG!")
+                let newUrl = changeFileExtension(url: url, newExtension: "apng")
+                url = newUrl ?? url
             }
+            
+            if outputExtension == "png" {
+                outputExtension = "apng"
+            }
+        }
+        
+        if lowercasedInputPathExt == "heic" {
+            let image = UIImage(url: url)
+            let newUrl = url.deletingPathExtension().appendingPathExtension("jpg")
+            try? image?.jpegData(compressionQuality: 1)?.write(to: newUrl, options: .atomic)
+            url = newUrl
+        }
+        
+        if outputExtension == "heic" {
+            outputExtension = "jpg"
         }
         
         if outputExtension == nil || outputExtension == url.pathExtension {
             let id = ID()
             outputExtension = "\(id.generate()).\(url.pathExtension)"
         }
+        
         let inputPath = "\'\(url.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
         let outputURL = urlWithoutExtension.appendingPathExtension(outputExtension!)
         let outputPath = "\'\(outputURL.absoluteString.replacingOccurrences(of: "file://", with: "").removingPercentEncoding!)\'"
+        
+        
 
         var command = self.command != nil ? " \(self.command!) " : ""
         

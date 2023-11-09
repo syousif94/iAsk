@@ -170,14 +170,16 @@ class Message: ObservableObject {
     func attach(_ attachments: [Attachment]) async {
         self.attachments += attachments
     }
-    
-    // FIXME: remove the attachment record and potentially the data
+
     func detach(attachment: Attachment) async {
         let db = Database.shared.db
         
-        let otherExamples = try? await AttachmentRecord.read(from: db, sqlWhere: "dataId = ? ORDER BY createdAt DESC", arguments: [attachment.dataRecord.path])
+        var deleteData = false
         
-        print(otherExamples)
+        if let otherExamples = try? await AttachmentRecord.read(from: db, matching: \.$dataId == attachment.attachmentRecord.dataId),
+           otherExamples.count == 1 {
+            deleteData = true
+        }
         
         DispatchQueue.main.async {
             self.attachments = self.attachments.filter { a in
@@ -185,8 +187,12 @@ class Message: ObservableObject {
             }
         }
         
-//        try? await attachment.attachmentRecord.delete(from: db)
-//        try? await attachment.dataRecord.delete(from: db)
+        try? await attachment.attachmentRecord.delete(from: db)
+        
+        if deleteData, let url = attachment.url {
+            try? await attachment.dataRecord.delete(from: db)
+            try? FileManager.default.removeItem(at: url)
+        }
     }
     
     static func load(id: String) async -> Message? {
@@ -358,7 +364,8 @@ class Attachment: ObservableObject, Hashable, Identifiable {
                 UIApplication.shared.open(url)
             }
             else {
-                shareDialog()
+                Browser.shared.viewModel.browserUrl = url
+                showWebNotification.send(true)
             }
         }
     }
@@ -371,7 +378,7 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         
         let urlDataType = url.dataType
         
-        if urlDataType == .doc, let fileType = FileType(rawValue: url.pathExtension) {
+        if urlDataType == .doc, let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
             if fileType == .pdf || dataRecord.dataType == .url {
                 return ImageCache.get(url)
             }
@@ -400,7 +407,7 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         Task {
             switch dataRecord.dataType {
                 case .doc:
-                if let ext = FileType(rawValue: url.pathExtension), ext == .pdf {
+                if let ext = FileType(rawValue: url.pathExtension.lowercased()), ext == .pdf {
                     let _ = await getPDFPreview(url: url)
                 }
                 case .video:

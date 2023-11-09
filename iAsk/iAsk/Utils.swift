@@ -10,15 +10,7 @@ import UIKit
 import SwiftUI
 import CryptoKit
 import NanoID
-
-func isiOSAppOnMac() -> Bool {
-    if #available(iOS 14.0, *) {
-        return ProcessInfo.processInfo.isiOSAppOnMac
-    }
-    return false
-}
-
-let runningOnMac = isiOSAppOnMac()
+import Combine
 
 extension UIColor {
     static var backgroundColor: UIColor {
@@ -111,6 +103,10 @@ struct Application {
     #else
         false
     #endif
+    }()
+    
+    static let isPad: Bool = {
+        return UIDevice.current.userInterfaceIdiom == .pad || isCatalyst
     }()
     
     static var keyWindow: UIWindow? {
@@ -258,5 +254,67 @@ extension Array where Element: Hashable {
     func unique<T: Hashable>(by keyPath: KeyPath<Element, T>) -> [Element] {
         var uniqueValues = Set<T>()
         return filter { uniqueValues.insert($0[keyPath: keyPath]).inserted }
+    }
+}
+
+func isSubstring(mainString: String, subString: String) -> Bool {
+    return mainString.contains(subString)
+}
+
+func getLastWord(string: String) -> String {
+    let words = string.split(separator: " ")
+    return String(words.last ?? "")
+}
+
+func splitString(mainString: String, separator: String) -> [String] {
+    return mainString.components(separatedBy: separator)
+}
+
+extension UIView {
+    func screenshot() -> UIImage {
+        UIGraphicsBeginImageContextWithOptions(bounds.size, false, UIScreen.main.scale)
+        drawHierarchy(in: bounds, afterScreenUpdates: true)
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image!
+    }
+}
+
+func extractJSONValue(from jsonString: String, forKey key: String) -> String? {
+    // Pattern to capture values for a given key. This considers strings, numbers, booleans, and null as possible values.
+    // This pattern also makes sure to capture incomplete values if they are at the end.
+    let pattern = "\"\(key)\"\\s*:\\s*(?:(\"[^\"]*(?:\"|$))|([0-9]+(\\.[0-9]+)?)|(true|false|null))"
+    
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+        return nil
+    }
+    
+    guard let match = regex.firstMatch(in: jsonString, options: [], range: NSRange(location: 0, length: jsonString.utf16.count)) else {
+        return nil
+    }
+    
+    for i in 1..<match.numberOfRanges {
+        if let range = Range(match.range(at: i), in: jsonString) {
+            var result = String(jsonString[range])
+            if result.hasPrefix("\"") {
+                result = String(result.dropFirst())
+            }
+            if result.hasSuffix("\"") {
+                result = String(result.dropLast())
+            }
+            return result
+        }
+    }
+    return nil
+}
+
+extension Sequence {
+    func group<T: Hashable>(by keyFunc: (Element) -> T) -> [T: [Element]] {
+        var dict = [T: [Element]]()
+        for element in self {
+            let key = keyFunc(element)
+            if case nil = dict[key]?.append(element) { dict[key] = [element] }
+        }
+        return dict
     }
 }

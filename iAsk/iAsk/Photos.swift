@@ -62,35 +62,53 @@ class PhotoPickerPresenter: NSObject, PHPickerViewControllerDelegate {
         parentViewController?.present(picker, animated: true, completion: nil)
     }
     
-    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-        var images = [UIImage]()
-
-        for result in results {
-            if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
-                result.itemProvider.loadObject(ofClass: UIImage.self) { (image, error) in
-                    if let image = image as? UIImage {
-                        images.append(image)
+    func handleImages(results: [PHPickerResult]) async -> [URL]? {
+        let urls = try? await withThrowingTaskGroup(of: URL?.self) { [results] group -> [URL] in
+            
+            var urls = [URL]()
+            
+            for result in results {
+                group.addTask {
+                    await withCheckedContinuation { continuation in
+                        if result.itemProvider.canLoadObject(ofClass: UIImage.self) {
+                            result.itemProvider.loadObject(ofClass: UIImage.self) {(image, error) in
+                                if let image = image as? UIImage {
+                                    let id = ID(size: 8)
+                                    if let url = Disk.support.getPath(for: "imports/\(id.generate()).png"),
+                                       let data = image.pngData() {
+                                        try? data.write(to: url)
+                                        continuation.resume(returning: url)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
+            
+            for try await url in group {
+                if let url = url {
+                    urls.append(url)
+                }
+            }
+            
+            return urls
+            
         }
         
-        picker.dismiss(animated: true)
-
+        return urls
+    }
+    
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         
-//        for image in images {
-//            let id = ID(size: 8)
-//            guard let url = Disk.support.getPath(for: "imports/\(id.generate()).png"),
-//                  let data = image.pngData()
-//                    else {
-//                        return nil
-//                    }
-//            
-//            try data.write(to: url)
-//
-//            return url
-//        }
-
+        Task {
+            async let urlsPromise = handleImages(results: results)
+            
+            picker.dismiss(animated: true)
+            if let urls = await urlsPromise {
+                importedDocumentNotification.send(urls)
+            }
+        }
     }
 
 //    func pickerDidCancel(_ picker: PHPickerViewController) {

@@ -67,6 +67,8 @@ class Google {
 extension Google.PersonResponse {
     func toChoices(of type: ContactType) -> [ContactManager.Choice] {
         switch type {
+        case .address:
+            return []
         case.email:
             return person.emailAddresses.compactMap { ContactManager.Choice(name: person.names[0].displayName, detail: $0.value) }
         case.phone:

@@ -46,9 +46,9 @@ class ChatViewModel: ObservableObject {
     
     var model: Model {
         if proMode {
-            return "gpt-4-1106-preview"
+            return .gpt4_1106_preview
         }
-        return "gpt-3.5-turbo-1106"
+        return .gpt3_5Turbo_1106
     }
     
     @Published var showSettings = false
@@ -720,11 +720,11 @@ class ChatViewModel: ObservableObject {
 
                 switch function {
                 case .getUserLocation:
-                    print("get_user_location")
                     Task { [call] in
                         guard let location = try? await Location.shared.get() else {
                             DispatchQueue.main.async {
-                                aiMessage.content = "Sorry, I failed to get your location."
+                                aiMessage.answering = false
+                                aiMessage.content = ""
                             }
                             return
                         }
@@ -733,7 +733,8 @@ class ChatViewModel: ObservableObject {
                         guard let geocode = try? await Location.shared.geocode(coordinate: location.coordinate),
                               let cityAndState = geocode.locality else {
                             DispatchQueue.main.async {
-                                aiMessage.content = "Sorry, I failed to get your location."
+                                aiMessage.answering = false
+                                aiMessage.content = ""
                             }
                             return
                         }
@@ -743,7 +744,8 @@ class ChatViewModel: ObservableObject {
                         DispatchQueue.main.async {
                             let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: cityAndState, role: .function, messageType: .text, functionCallName: call.name)
                             let functionMessage = Message(record: functionMessageRecord)
-                            aiMessage.content = "Location: \(cityAndState)"
+                            aiMessage.content = cityAndState
+                            aiMessage.answering = false
                             self.messages.append(functionMessage)
                             self.endGenerating(userMessage: lastUserMessage)
                             Task {
@@ -823,17 +825,95 @@ class ChatViewModel: ObservableObject {
                 case .search:
                     do {
                         let args = try call.toArgs(SearchArgs.self)
-                        print(args)
-                        DispatchQueue.main.async {
+                        Task {
+                            let results = await Browser.shared.search(query: args.query)
                             
-                            aiMessage.functionLog += "\nSearching: \(args.query)"
+//                            let isEnoughInfoMessage = """
+//                            Determine if you can answer the following question based on the context.
+//                            Question:
+//                            \(lastUserMessage?.content ?? "")
+//                            Context:
+//                            \(results.answerText ?? "")
+//                            """
+//                            
+//                            let isEnoughInfo = await determine([.init(role: .user, content: isEnoughInfoMessage)])
+//                            
+//                            print("is enough info", isEnoughInfo, isEnoughInfoMessage)
+//                            
+//                            if isEnoughInfo {
+//                                let functionOutput = """
+//                                    {
+//                                        "text":"\(results.answerText ?? "")"
+//                                    }
+//                                """
+//                                
+//                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .data, functionCallName: call.name)
+//                                
+//                                let functionMessage = Message(record: functionMessageRecord)
+//                                
+//                                DispatchQueue.main.async {
+//                                    self.messages.append(functionMessage)
+//                                    self.endGenerating(userMessage: lastUserMessage)
+//                                    aiMessage.answering = false
+//                                    Task {
+//                                        async let saveAi = aiMessage.save()
+//                                        async let saveFn = functionMessage.save()
+//                                        async let callChat = self.callChat()
+//                                        await saveAi
+//                                        await saveFn
+//                                        await callChat
+//                                    }
+//                                }
+//                                return
+//                            }
                             
-                            self.endGenerating(userMessage: lastUserMessage)
-                            Task {
-                                await aiMessage.save()
+                            DispatchQueue.main.async {
+                                aiMessage.functionLog += "Obtained \(results.links.count) results"
+                            }
+                            
+                            if let firstLink = results.links.first {
+                                DispatchQueue.main.async {
+                                    aiMessage.content = "Loading \(firstLink.absoluteString)"
+                                    aiMessage.functionLog += "\n\(aiMessage.content)"
+                                }
+                                
+                                let html = await Browser.shared.fetchHTML(from: firstLink)
+                                
+                                if let html = html {
+                                    let text = extractText(html: html)
+                                    
+                                    print("sanitized html", text)
+                                    
+                                    let functionOutput = """
+                                        {
+                                            "url":"\(firstLink.absoluteString)",
+                                            "html":"\(text ?? "")"
+                                        }
+                                    """
+                                    
+                                    let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .text, functionCallName: call.name)
+                                    
+                                    let functionMessage = Message(record: functionMessageRecord)
+                                    
+                                    DispatchQueue.main.async {
+                                        self.messages.append(functionMessage)
+                                        self.endGenerating(userMessage: lastUserMessage)
+                                        aiMessage.answering = false
+                                        Task {
+                                            async let saveAi = aiMessage.save()
+                                            async let saveFn = functionMessage.save()
+                                            async let callChat = self.callChat()
+                                            await saveAi
+                                            await saveFn
+                                            await callChat
+                                        }
+                                    }
+                                    
+                                    
+                                }
+                                
                             }
                         }
-                        
                     } catch {
                         print("Failed to decode JSON: \(error)")
                         self.endGenerating(userMessage: lastUserMessage)
@@ -980,11 +1060,30 @@ class ChatViewModel: ObservableObject {
                         Task {
                             
                             let urls = files.compactMap { filePath -> URL? in
+                                
+                                var downloadPath: URL? = nil
+                                
                                 if let attachment = self.latestAttachments.first(where: { a in
-                                    a.dataRecord.name == filePath && a.hasText
+                                    
+                                    if a.dataRecord.dataType == .url, let url = a.url, let path = getDownloadURL(for: url) {
+                                        let name = path.lastPathComponent
+                                        let isTheOne = name == filePath
+                                        if isTheOne {
+                                            downloadPath = path
+                                        }
+                                        return isTheOne
+                                    }
+                                    
+                                    let filenameMatch = a.dataRecord.name == filePath && a.hasText
+                                    if filenameMatch {
+                                        return true
+                                    }
+                                    
+                                    return false
                                 }) {
-                                    return attachment.url
+                                    return downloadPath ?? attachment.url
                                 }
+
                                 return URL(string: filePath)
                             }
                             

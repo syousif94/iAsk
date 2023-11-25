@@ -74,7 +74,9 @@ struct QuestionInput: View {
                     let matches = detector?.matches(in: newValue, options: [], range: NSMakeRange(0, newValue.utf16.count))
 
                     var urls = [URL]()
+                    
                     var needsPasteboard = false
+                    
                     for match in matches ?? [] {
                         if let url = match.url {
                             print("URL Detected: \(url)")
@@ -639,7 +641,13 @@ struct MessageView: View {
     }
     
     var hasCustomView: Bool {
-        return message.record.role == .assistant && (functionType == .createCalendarEvent || functionType == .sms || functionType == .readFiles)
+        return message.record.role == .assistant && (
+            functionType == .createCalendarEvent ||
+            functionType == .sms ||
+            functionType == .readFiles ||
+            functionType == .search ||
+            functionType == .getUserLocation
+        )
     }
     
     var body: some View {
@@ -654,6 +662,14 @@ struct MessageView: View {
             
             if functionType == .createCalendarEvent {
                 EventsMessageView(message: message)
+            }
+            
+            if functionType == .search {
+                SearchingMessageView(message: message)
+            }
+            
+            if functionType == .getUserLocation {
+                LocatingMessageView(message: message)
             }
         }
         if message.record.messageType == .select {
@@ -757,6 +773,122 @@ struct ReadingFilesMessageView: View {
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.bottom)
+        .onReceive(message.$answering){ newValue in
+            answering = newValue
+        }
+    }
+}
+
+struct LocatingMessageView: View {
+    
+    @Environment(\.colorScheme) var colorScheme
+    
+    var message: Message
+    
+    @State var answering: Bool = true
+    
+    @State var content: String = ""
+    
+    var locatedText: String {
+        content.isEmpty ? "Failed to Locate" : "Located: \(content)"
+    }
+    
+    var body: some View {
+        HStack {
+            if answering {
+                ProgressView()
+                    .tint(.white)
+                    .padding()
+                
+                Text("Locating")
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+                
+            }
+            else {
+                Image(systemName: "checkmark")
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding()
+                Text(locatedText)
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+            }
+        }
+        .background(.purple)
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.bottom)
+        .onReceive(message.$answering) { newValue in
+            answering = newValue
+        }
+        .onReceive(message.$content) { newValue in
+            content = newValue
+        }
+    }
+}
+
+struct SearchingMessageView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
+    var message: Message
+    
+    @State var answering: Bool = true
+    
+    @State var query: String = ""
+    
+    var searchingText: String {
+        query.isEmpty ? "Searching" : "Searching: \(query)"
+    }
+    
+    enum JsonKeys: String, CaseIterable {
+        case query
+    }
+    
+    var body: some View {
+        HStack {
+            if answering {
+                ProgressView()
+                    .tint(.white)
+                    .padding()
+                
+                Text(searchingText)
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+                
+            }
+            else {
+                Image(systemName: "checkmark")
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding()
+                Text("Search Completed")
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+            }
+        }
+        .background(.blue)
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.bottom)
+        .onReceive(message.$content.debounce(for: 0.016, scheduler: DispatchQueue.main)) { text in
+            for key in JsonKeys.allCases {
+                if let extracted = extractJSONValue(from: String(text), forKey: key.rawValue) {
+                    switch key {
+                    case .query:
+                        self.query = extracted
+                    }
+                }
+            }
+        }
         .onReceive(message.$answering){ newValue in
             answering = newValue
         }
@@ -1221,7 +1353,7 @@ struct AttachmentPreview: View {
                     .frame(width: sideLength, height: sideLength * 1.2)
                     .clipped()
             }
-            else if let url = attachment.url, let text = extractText(url: url) {
+            else if let url = attachment.url, url.pathExtension != "pdf", let text = extractText(url: url) {
                 Text(text)
                     .font(
                         .system(size: 5)
@@ -1229,7 +1361,7 @@ struct AttachmentPreview: View {
                     .frame(width: sideLength, height: sideLength * 1.2)
                     .clipped()
             }
-            if generating {
+            else if generating {
                 ProgressView()
                     .frame(width: sideLength, height: sideLength * 1.2)
             }

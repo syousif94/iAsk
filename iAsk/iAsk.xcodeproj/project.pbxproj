@@ -22,7 +22,6 @@
 		534A6B542AEB2EB200B8AB7A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534A6B532AEB2EB200B8AB7A /* SettingsView.swift */; };
 		534B754E2AD498BB00C16026 /* EventKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754D2AD498BB00C16026 /* EventKit.swift */; };
 		534B75502AD4C1B400C16026 /* Vision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754F2AD4C1B400C16026 /* Vision.swift */; };
-		5353F6BF2AF055A300B701FE /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = 5353F6BE2AF055A300B701FE /* OpenAI */; };
 		5353F6C32AF06E0A00B701FE /* StoreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */; };
 		537865F72AE381AA0028FFDE /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F62AE381AA0028FFDE /* CameraView.swift */; };
 		537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F82AE381BE0028FFDE /* CameraViewModel.swift */; };
@@ -68,6 +67,7 @@
 		5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6492A9199DA00BA85A1 /* SwiftyContacts */; };
 		5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D64C2A919B4700BA85A1 /* GoogleSignIn */; };
 		5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6512A9567E300BA85A1 /* OrderedCollections */; };
+		53AF6BB12B093367003AC95E /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = 53AF6BB02B093367003AC95E /* OpenAI */; };
 		53FC504F2A9DB67300AC2AD3 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */; };
 /* End PBXBuildFile section */
 
@@ -172,7 +172,7 @@
 				538106402AB124E8007F759E /* SwiftSoup in Frameworks */,
 				5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */,
 				5384D5FB2A81D3D000BA85A1 /* GRDB in Frameworks */,
-				5353F6BF2AF055A300B701FE /* OpenAI in Frameworks */,
+				53AF6BB12B093367003AC95E /* OpenAI in Frameworks */,
 				5384D6372A8DD66A00BA85A1 /* SwiftDate in Frameworks */,
 				5384D62A2A89689C00BA85A1 /* Blackbird in Frameworks */,
 				5384D5F82A81D3A100BA85A1 /* USearch in Frameworks */,
@@ -311,7 +311,7 @@
 				53002D392AB900CA007AAFF4 /* FuzzyFind */,
 				5328865B2AC64EEC00B7FB92 /* AlertToast */,
 				533AFB2B2AD75D2400B24FE3 /* WrappingHStack */,
-				5353F6BE2AF055A300B701FE /* OpenAI */,
+				53AF6BB02B093367003AC95E /* OpenAI */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -382,7 +382,7 @@
 				53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */,
 				5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */,
 				533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
-				5353F6BD2AF055A200B701FE /* XCRemoteSwiftPackageReference "OpenAI" */,
+				53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -801,14 +801,6 @@
 				minimumVersion = 2.2.11;
 			};
 		};
-		5353F6BD2AF055A200B701FE /* XCRemoteSwiftPackageReference "OpenAI" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/PallavAg/OpenAI";
-			requirement = {
-				branch = "patch-1";
-				kind = branch;
-			};
-		};
 		538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tylerjonesio/ffmpeg-kit-spm.git";
@@ -945,6 +937,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/OpenAI.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -962,11 +962,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
 			productName = WrappingHStack;
-		};
-		5353F6BE2AF055A300B701FE /* OpenAI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5353F6BD2AF055A200B701FE /* XCRemoteSwiftPackageReference "OpenAI" */;
-			productName = OpenAI;
 		};
 		538106232AA07432007F759E /* FFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1057,6 +1052,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5384D6502A9567E200BA85A1 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
+		};
+		53AF6BB02B093367003AC95E /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -305,6 +305,12 @@ class Attachment: ObservableObject, Hashable, Identifiable {
             
             try? await download(url: url)
             
+            if url.pathExtension == "pdf" {
+                print("generating downloaded pdf", url)
+                self.generatingPreview = false
+                self.generatePreviewImage()
+            }
+            
             DispatchQueue.main.async {
                 self.status = "Indexing"
             }
@@ -413,7 +419,13 @@ class Attachment: ObservableObject, Hashable, Identifiable {
                 case .video:
                     let _ = await getVideoPreview(url: url)
                 case .url:
-                    let _ = await getUrlPreview(url: url)
+                    if let ext = FileType(rawValue: url.pathExtension.lowercased()), ext == .pdf {
+                        let _ = await getPDFPreview(url: url)
+                    }
+                    else {
+                        let _ = await getUrlPreview(url: url)
+                    }
+                    
                 default:
                     break
             }

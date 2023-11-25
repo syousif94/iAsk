@@ -139,8 +139,24 @@ extension URL {
         
         var isDownloadableDoc = false
         
-        if let ext = docExtension, ext != .html, ext != .php {
-            isDownloadableDoc = true
+        if let ext = docExtension {
+            let isHTML = ext == .html
+            let isPHP = ext == .php
+            
+            let text = self.absoluteString
+            let isGitHost = self.host?.contains("git") ?? false
+            let isGitRaw = isGitHost && (text.contains("raw/") || text.contains("raw."))
+            let isGit = isGitHost && !isGitRaw
+            
+            if isGitRaw {
+                isDownloadableDoc = true
+            }
+            else if isGit || isHTML || isPHP {
+                isDownloadableDoc = false
+            }
+            else {
+                isDownloadableDoc = true
+            }
         }
         else if let _ = photoExtension {
             isDownloadableDoc = true
@@ -177,11 +193,10 @@ func download(url: URL) async throws {
         print("downloaded url to file", url.absoluteString, downloadPath.absoluteString)
     }
     else {
-        
-        await Browser.shared.fetchHTML(from: url, completionHandler: { html in
-            print("dumped html to file", url.absoluteString, downloadPath.absoluteString)
-            try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
-        })
+        print("dumping")
+        let html = await Browser.shared.fetchHTML(from: url)
+        print("dumped html to file", url.absoluteString, downloadPath.absoluteString, html)
+        try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
     }
 }
 
@@ -290,6 +305,11 @@ func extractText(url: URL) -> String? {
         // For all other data types, we can read the strings as utf-8
         do {
             let contents = try String(contentsOf: url, encoding: .utf8)
+            
+            if fileType == .html {
+                return extractText(html: contents)
+            }
+            
             return contents
         } catch {
             print("Error reading file: \(error.localizedDescription)")
@@ -635,12 +655,15 @@ func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
         if let text = extractText(url: url) {
             let encoded = encoder.encode(text: text)
             let textURL = (url.isFileURL ? url : getDownloadURL(for: url))!.lastPathComponent
+            print(textURL)
             if encoded.count < 10000 {
                 totalEstimatedTokens += encoded.count
                 loaded.insert(url)
                 researchText += """
-                file_path: \(textURL)
-                text: \(text)
+                file_path:
+                \(textURL)
+                text:
+                \(text)
                 """
             }
             else {

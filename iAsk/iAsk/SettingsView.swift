@@ -45,8 +45,8 @@ class SettingsViewModel: ObservableObject {
         
         let now = Date()
         
-        async let gpt35query = try? MessageRecord.read(from: Database.shared.db, sqlWhere: "model = ? AND role = ? AND updatedAt > ? ORDER BY updatedAt ASC", arguments: [Model.gpt3_5Turbo, Chat.Role.user.rawValue, now - 30.days])
-        async let gpt4query = try? MessageRecord.read(from: Database.shared.db, sqlWhere: "model = ? AND role = ? AND updatedAt > ? ORDER BY updatedAt ASC", arguments: [Model.gpt4, Chat.Role.user.rawValue, now - 30.days])
+        async let gpt35query = try? MessageRecord.read(from: Database.shared.db, sqlWhere: "model = ? AND role = ? AND updatedAt > ? ORDER BY updatedAt ASC", arguments: [Model.gpt3_5Turbo_1106, Chat.Role.user.rawValue, now - 30.days])
+        async let gpt4query = try? MessageRecord.read(from: Database.shared.db, sqlWhere: "model = ? AND role = ? AND updatedAt > ? ORDER BY updatedAt ASC", arguments: [Model.gpt4_1106_preview, Chat.Role.user.rawValue, now - 30.days])
         
         let gpt35questions = await gpt35query
         let gpt4questions = await gpt4query

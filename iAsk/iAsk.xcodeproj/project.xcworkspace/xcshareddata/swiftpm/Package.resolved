@@ -129,10 +129,10 @@
     {
       "identity" : "openai",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/PallavAg/OpenAI",
+      "location" : "https://github.com/MacPaw/OpenAI.git",
       "state" : {
-        "branch" : "patch-1",
-        "revision" : "80e916097b36281b68ab579e9e08cb39519bd472"
+        "branch" : "main",
+        "revision" : "ac5892fd0de8d283362ddc30f8e9f1a0eaba8cc0"
       }
     },
     {

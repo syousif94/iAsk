@@ -71,10 +71,10 @@ extension ConvertMediaArgs.ItemArgs {
                 print("Oh no, an animated PNG!")
                 let newUrl = changeFileExtension(url: url, newExtension: "apng")
                 url = newUrl ?? url
-            }
-            
-            if outputExtension == "png" {
-                outputExtension = "apng"
+                
+                if outputExtension == "png" {
+                    outputExtension = "apng"
+                }
             }
         }
         

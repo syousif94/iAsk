@@ -33,9 +33,7 @@ class ChatLog: ObservableObject, Equatable {
     }
     
     func updateMessages() {
-        DispatchQueue.main.async {
-            self.messages = self.messageDict.values.elements
-        }
+        self.messages = self.messageDict.values.elements
     }
 }
 
@@ -168,15 +166,15 @@ class HistoryViewModel: ObservableObject {
             }
             if let chatLog = self.chatLogs[messageRecord.chatId] {
                 if let existingMessage = chatLog.messageDict[messageRecord.id] {
-                    chatLog.messageDict.updateValue(message, forKey: existingMessage.record.id)
                     DispatchQueue.main.async {
+                        chatLog.messageDict.updateValue(message, forKey: existingMessage.record.id)
                         chatLog.updateMessages()
                     }
                     
                 }
                 else {
-                    chatLog.messageDict.updateValue(message, forKey: messageRecord.id)
                     DispatchQueue.main.async {
+                        chatLog.messageDict.updateValue(message, forKey: messageRecord.id)
                         chatLog.updateMessages()
                     }
                 }

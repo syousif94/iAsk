@@ -9,6 +9,7 @@ import WebKit
 import UIKit
 import PinLayout
 import Combine
+import SwiftSoup
 
 let showWebNotification = NotificationPublisher<Bool>()
 
@@ -65,7 +66,7 @@ class Browser: UIViewController {
         viewModel.browserUrl = URL(string: urlInputText)
         
         keyboardManager.observeKeyboardChanges { (height, animation) in
-            var bottomOffset = UIApplication.shared.windows.first!.safeAreaInsets.bottom
+            var bottomOffset = Application.keyWindow?.safeAreaInsets.bottom ?? 0
             
             if bottomOffset == 0 {
                 bottomOffset = 12
@@ -124,13 +125,13 @@ class Browser: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        var topOffset = UIApplication.shared.windows.first!.safeAreaInsets.bottom
+        var topOffset = Application.keyWindow?.safeAreaInsets.top ?? 0
         
         #if targetEnvironment(macCatalyst)
         topOffset += 28
         #endif
         
-        var bottomOffset = UIApplication.shared.windows.first!.safeAreaInsets.bottom
+        var bottomOffset = Application.keyWindow?.safeAreaInsets.bottom ?? 0
         
         if bottomOffset == 0 {
             bottomOffset = 12
@@ -222,6 +223,66 @@ class Browser: UIViewController {
         }
     }
     
+    struct SearchResults {
+        var links: [URL] = []
+        var answerText: String? = nil
+    }
+    
+    func search(query: String) async -> SearchResults {
+        let text = await withCheckedContinuation { continuation in
+            self.completionHandler = { text in
+                continuation.resume(returning: text)
+            }
+            self.loadURLString(query)
+        }
+        
+        var results = SearchResults()
+        
+        if let text = text {
+            results.links = extractLinks(html: text)
+            results.answerText = extractText(html: text)
+        }
+        
+        return results
+    }
+    
+    func extractLinks(html: String) -> [URL] {
+        guard let doc = try? SwiftSoup.parse(html),
+              let links: Elements = try? doc.select("a") else {
+            return []
+        }
+        
+        var urls: [URL] = []
+        
+        for link in links.array() {
+            if let href = try? link.attr("href"), 
+                let url = URL(string: href) {
+                let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                if let urlComponent = components?.queryItems?.first(where: { item in
+                    item.name == "q"
+                }),
+                    let val = urlComponent.value,
+                    let newUrl = URL(string: val),
+                    isGoodSearchURL(url: newUrl) {
+                    urls.append(newUrl)
+                }
+                else if isGoodSearchURL(url: url) {
+                    urls.append(url)
+                }
+            }
+        }
+        
+        return urls
+    }
+    
+    func isGoodSearchURL(url: URL) -> Bool {
+        let host = url.host(percentEncoded: false)
+        if host == nil || host!.isEmpty || host!.contains(/(google|\.gl|tiktok\.|youtube\.|twitter\.|instagram\.|fb\.|facebook|linkedin)/) {
+            return false
+        }
+        return true
+    }
+    
     func fetchHTML(from url: URL, completionHandler: @escaping (String?) -> Void) {
         guard let w = webView else {
             print("WebView has not been setup")
@@ -229,6 +290,28 @@ class Browser: UIViewController {
         }
         self.completionHandler = completionHandler
         self.viewModel.browserUrl = url
+    }
+    
+    func fetchHTML(from url: URL) async -> String? {
+        guard let _ = webView else {
+            print("WebView has not been setup")
+            return nil
+        }
+        
+        async let html: String? = withCheckedContinuation { continuation in
+            
+            Task { @MainActor in
+                self.completionHandler = { html in
+                    continuation.resume(returning: html)
+                }
+            }
+            
+            
+        }
+        
+        self.viewModel.browserUrl = url
+        
+        return await html
     }
     
     func dumpHTML(completionHandler: @escaping (String?) -> Void) {
@@ -269,11 +352,9 @@ class Browser: UIViewController {
         let urls = findURLs(input: searchString)
         
         if let url = urls.first, searchString.split(separator: " ").count == 1 {
-            print(url)
             self.viewModel.browserUrl = url
         } else {
             if let url = URL(string: "https://www.google.com/search?q=\(searchString.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? "")") {
-                print(url)
                 self.viewModel.browserUrl = url
             }
         }
@@ -303,19 +384,65 @@ extension Browser: WKNavigationDelegate {
         let url = viewModel.browserUrl
         
         if let handler = self.completionHandler {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            print("running async js")
+            DispatchQueue.main.async {
                 if let url = url {
                     self.takeScreenshot(url: url)
                 }
                 
-                webView.evaluateJavaScript("document.documentElement.outerHTML.toString()",
-                                           completionHandler: { (html: Any?, error: Error?) in
-                    if let htmlString = html as? String {
-                        handler(htmlString)
-                    } else {
+                let scriptContent = """
+                  let html = await new Promise((resolve, reject) => {
+                    let timeoutId;
+                    const idleTime = 300; // Time in milliseconds to wait for network idle
+
+                    const callFunctionAfterNetworkIdle = () => {
+                      if (timeoutId) {
+                        clearTimeout(timeoutId);
+                      }
+                      timeoutId = setTimeout(() => {
+                        // Resolve the promise with the outerHTML of the document
+                        resolve(document.documentElement.outerHTML.toString());
+                      }, idleTime);
+                    };
+                
+                    setTimeout(() => {
+                        resolve(document.documentElement.outerHTML.toString());
+                    }, 1000)
+
+                    // Use the PerformanceObserver API to monitor network requests
+                    const observer = new PerformanceObserver((list) => {
+                      list.getEntries().forEach((entry) => {
+                        if (entry.entryType === 'resource') {
+                          callFunctionAfterNetworkIdle();
+                        }
+                      });
+                    });
+
+                    observer.observe({ entryTypes: ['resource'] });
+                  });
+                
+                return html
+                """
+                
+                webView.callAsyncJavaScript(scriptContent, in: nil, in: WKContentWorld.defaultClient, completionHandler: { result in
+                    
+                    print("loaded async javascript")
+                    
+                    switch result {
+                    case .success(let html):
+                        if let html = html as? String {
+                            handler(html)
+                        }
+                        else {
+                            handler(nil)
+                        }
+                    case .failure(let error):
+                        print(error)
                         handler(nil)
                     }
+                    
                     self.completionHandler = nil
+                    
                 })
             }
         }
@@ -484,7 +611,10 @@ actor ScreenshotManager {
     private var screenshotReadyContinuations: [URL: [CheckedContinuation<URL?, Never>]] = [:]
 
     func storeScreenshot(_ screenshot: UIImage, for pageURL: URL, at cacheURL: URL) async throws {
-        try await saveImage(screenshot, at: cacheURL)
+        Task {
+            try await saveImage(screenshot, at: cacheURL)
+        }
+        
         screenshotURLs[pageURL] = cacheURL
         screenshotReadyContinuations[pageURL]?.forEach { continuation in
             continuation.resume(returning: cacheURL)
@@ -514,4 +644,27 @@ actor ScreenshotManager {
 
         try imageData.write(to: cacheURL)
     }
+}
+
+func extractText(html: String) -> String? {
+    do {
+        var html = html
+        let doc = try SwiftSoup.parse(html)
+        
+        if let mainContent = try doc.select("main").first() {
+            if let h = try? mainContent.outerHtml() {
+                html = h
+            }
+        }
+        
+        let whitelist = try Whitelist.simpleText()
+        let safe = try SwiftSoup.clean(html, whitelist)
+        return safe
+    } catch Exception.Error(_, let message) {
+        print(message)
+    } catch {
+        print("error")
+    }
+    
+    return nil
 }

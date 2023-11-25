@@ -206,7 +206,8 @@ func changeFileExtension(url: URL, newExtension: String) -> URL? {
 }
 
 func downloadFile(from sourceURL: URL, to destinationURL: URL) async throws {
-    let (downloadedData, _) = try await URLSession.shared.data(from: sourceURL)
+    let session = URLSession(configuration: .default)
+    let (downloadedData, _) = try await session.data(from: sourceURL)
     try downloadedData.write(to: destinationURL)
 }
 

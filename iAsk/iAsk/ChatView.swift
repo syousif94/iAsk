@@ -91,6 +91,10 @@ struct QuestionInput: View {
                                 }
                             }
                             
+                            if isURLPrecededByColon(url: url.absoluteString, in: newValue) {
+                                return
+                            }
+                            
                             if !url.isFileURL || fileExists(at: url) {
                                 urls.append(url)
                             }
@@ -139,6 +143,8 @@ let scrollMessagesList = NotificationPublisher<CGFloat>()
 
 struct ChatView: View {
     @EnvironmentObject var chat: ChatViewModel
+    
+    @EnvironmentObject var alerts: AlertViewModel
     
     @StateObject var keyboardObserver = KeyboardObserver()
     
@@ -327,7 +333,6 @@ struct ChatView: View {
                             ScrollView(.horizontal) {
                                 CodeEditor(
                                     source: $chat.presentedText,
-                                    selection: $chat.codeSelection,
                                     language: CodeEditor.Language(rawValue: chat.codeLanguage),
                                     theme: colorScheme == .dark ? CodeEditor.ThemeName(rawValue: "monokai") : CodeEditor.ThemeName(rawValue: "xcode")
                                 )
@@ -338,11 +343,10 @@ struct ChatView: View {
                     }
                     .toolbar(content: {
                         ToolbarItemGroup(placement: .bottomBar) {
-                            Button("Select All") {
-                                chat.codeSelection = chat.presentedText.startIndex..<chat.presentedText.endIndex
-                            }
                             Button("Copy") {
-                                
+                                let selectedCode = chat.presentedText
+                                copyToClipboard(text: selectedCode)
+                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                             }
                             Spacer()
                             Button("Done") {
@@ -596,6 +600,13 @@ struct MessageView: View {
                     configuration.label
                         .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
                 }
+            })
+            .markdownTextStyle(\.code) {
+                  FontFamilyVariant(.monospaced)
+                FontWeight(.bold)
+            }
+            .markdownBlockStyle(\.listItem, body: { configuration in
+                configuration.label.padding(.vertical, 12).padding(.leading, chat.isWide ? -32 : 0)
             })
             .markdownBlockStyle(\.codeBlock, body: { configuration in
                 MarkdownCodeView(message: message, configuration: configuration, isFocused: _isFocused, showCode: $chat.isPresentingText, selectedCode: $chat.presentedText, selectedLanguage: $chat.codeLanguage)
@@ -1183,9 +1194,12 @@ struct MarkdownCodeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .markdownMargin(top: .em(0.8), bottom: .em(0.8))
             .onTapGesture {
-                selectedLanguage = configuration.language ?? ""
-                selectedCode = configuration.content
-                showCode.toggle()
+                DispatchQueue.main.async {
+                    selectedLanguage = configuration.language ?? ""
+                    selectedCode = configuration.content
+                    showCode.toggle()
+                }
+                
                 print("tap gesture completed", showCode)
             }
             .onDrag {
@@ -1264,52 +1278,38 @@ struct DataMessageView: View {
                             height = -10
                             return
                         }
-                        print("height of data", proxy.size.height)
+
                         height = proxy.size.height
                         
                         let perRow = floor(proxy.size.width / (140 + 10))
                         
-                        print("per row", perRow)
-                        
                         let rows = ceil(CGFloat(newValue.count) / perRow)
                         
-                        print("rows", rows)
-                        
                         let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
-                        
-                        print("ideal height", idealHeight)
                         
                         if height == nil || height! < idealHeight {
                             height = idealHeight
                         }
-                        
-                        print("height of data", height)
                     })
                     .onAppear {
                         if attachments.isEmpty {
                             height = -10
                             return
                         }
-                        print("height of data at start", proxy.size.height)
+
                         height = proxy.size.height
                         
                         let perRow = floor(proxy.size.width / (140 + 10))
                         
-                        print("per row", perRow)
-                        
                         let rows = ceil(CGFloat(attachments.count) / perRow)
-                        
-                        print("rows", rows)
-                        
+
                         let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
-                        
-                        print("ideal height", idealHeight)
+
                         
                         if height == nil || height! < idealHeight {
                             height = idealHeight
                         }
 
-                        print("height of data at start", height)
                     }
                 }
             }
@@ -1353,7 +1353,7 @@ struct AttachmentPreview: View {
                     .frame(width: sideLength, height: sideLength * 1.2)
                     .clipped()
             }
-            else if let url = attachment.url, url.pathExtension != "pdf", let text = extractText(url: url) {
+            else if let url = attachment.url, url.pathExtension != "pdf", let text = extractText(url: url, dataType: attachment.dataRecord.dataType) {
                 Text(text)
                     .font(
                         .system(size: 5)
@@ -1384,6 +1384,15 @@ struct AttachmentView: View {
         self._attachment = attachment
     }
     
+    var fileName: String {
+        if let url = attachment.url, !url.isFileURL {
+            if attachment.dataRecord.name.isEmpty || attachment.dataRecord.name == "/" {
+                return url.absoluteString
+            }
+        }
+        return attachment.dataRecord.name
+    }
+    
     var innerBody: some View {
         ZStack {
             AttachmentPreview(message: message, attachment: $attachment, sideLength: $sideLength)
@@ -1409,7 +1418,7 @@ struct AttachmentView: View {
                         .frame(maxWidth: .infinity)
                     }
                     HStack {
-                        Text(attachment.dataRecord.name)
+                        Text(fileName)
                             .font(.caption)
                             .fontWeight(.bold)
                             .padding(.bottom, 4)

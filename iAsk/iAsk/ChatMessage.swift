@@ -71,7 +71,8 @@ class Message: ObservableObject {
             return .init(role: record.role, content: contentFromAttachments)
         }
         if record.isFunctionCall {
-            return .init(role: record.role, content: nil, functionCall: FunctionCallParams(name: record.functionCallName!, arguments: record.functionCallArgs!).ai)
+            let functionCall = ChatFunctionCall(name: record.functionCallName!, arguments: record.functionCallArgs!)
+            return .init(role: record.role, content: nil, functionCall: functionCall)
         }
         if record.role == .function {
             return .init(role: .function, content: record.content, name: record.functionCallName)
@@ -364,6 +365,15 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         }
     }
     
+    func readFile() -> String? {
+        guard let url = url,
+              let localUrl = url.isFileURL ? url : getDownloadURL(for: url) else {
+            return nil
+        }
+        
+        return extractText(url: localUrl, dataType: dataRecord.dataType)
+    }
+    
     func open() {
         if let url = url {
             if Application.isCatalyst {
@@ -381,6 +391,8 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         guard let url = self.url else {
             return nil
         }
+        
+        print("loading preview image for url", url.absoluteString)
         
         let urlDataType = url.dataType
         

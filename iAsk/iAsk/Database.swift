@@ -10,6 +10,7 @@ import Blackbird
 import Combine
 import NanoID
 import OpenAI
+import CloudKit
 
 class Database: NSObject {
     static let shared = Database()
@@ -55,6 +56,42 @@ struct DataRecord: BlackbirdModel, Codable {
     @BlackbirdColumn  var keywords: String?
 }
 
+extension DataRecord {
+    var ckrecord: CKRecord {
+        let recordId = CKRecord.ID(recordName: self.path)
+        let record = CKRecord(recordType: "Data", recordID: recordId)
+        
+        record["path"] = self.path as CKRecordValue
+        record["parentPath"] = self.parentPath as CKRecordValue?
+        record["name"] = self.name as CKRecordValue
+        record["dataType"] = self.dataType.rawValue as CKRecordValue
+        record["createdAt"] = self.createdAt as CKRecordValue
+        record["summary"] = self.summary as CKRecordValue?
+        record["keywords"] = self.keywords as CKRecordValue?
+        
+        return record
+    }
+    
+    init?(ckRecord: CKRecord) {
+        guard let path = ckRecord["path"] as? String,
+              let name = ckRecord["name"] as? String,
+              let dataTypeRawValue = ckRecord["dataType"] as? String,
+              let dataType = DataType(rawValue: dataTypeRawValue),
+              let createdAt = ckRecord["createdAt"] as? Date else {
+            return nil
+        }
+        
+        self.path = path
+        self.parentPath = ckRecord["parentPath"] as? String
+        self.name = name
+        self.dataType = dataType
+        self.createdAt = createdAt
+        self.summary = ckRecord["summary"] as? String
+        self.keywords = ckRecord["keywords"] as? String
+    }
+}
+
+
 struct AttachmentRecord: BlackbirdModel, Codable {
     static var primaryKey: [BlackbirdColumnKeyPath] = [\.$msgId, \.$dataId]
     
@@ -71,6 +108,34 @@ struct AttachmentRecord: BlackbirdModel, Codable {
     
     var key: String {
         return "\(msgId)\(dataId)"
+    }
+}
+
+extension AttachmentRecord {
+    var ckrecord: CKRecord {
+        let recordId = CKRecord.ID(recordName: self.key)
+        let record = CKRecord(recordType: "Attachment", recordID: recordId)
+        
+        record["msgId"] = self.msgId as CKRecordValue
+        record["dataId"] = self.dataId as CKRecordValue
+        record["chatId"] = self.chatId as CKRecordValue
+        record["createdAt"] = self.createdAt as CKRecordValue
+        
+        return record
+    }
+    
+    init?(ckRecord: CKRecord) {
+        guard let msgId = ckRecord["msgId"] as? String,
+              let dataId = ckRecord["dataId"] as? String,
+              let chatId = ckRecord["chatId"] as? String,
+              let createdAt = ckRecord["createdAt"] as? Date else {
+            return nil
+        }
+        
+        self.msgId = msgId
+        self.dataId = dataId
+        self.chatId = chatId
+        self.createdAt = createdAt
     }
 }
 
@@ -140,6 +205,62 @@ struct MessageRecord: BlackbirdModel, Codable {
     }
 }
 
+extension MessageRecord {
+    var ckrecord: CKRecord {
+        let recordId = CKRecord.ID(recordName: self.id)
+        let record = CKRecord(recordType: "Message", recordID: recordId)
+        
+        record["id"] = self.id as CKRecordValue
+        record["chatId"] = self.chatId as CKRecordValue
+        record["parentMessageId"] = self.parentMessageId as CKRecordValue?
+        record["createdAt"] = self.createdAt as CKRecordValue
+        record["updatedAt"] = self.updatedAt as CKRecordValue?
+        record["content"] = self.content as CKRecordValue
+        record["role"] = self.role.rawValue as CKRecordValue
+        record["messageType"] = self.messageType.rawValue as CKRecordValue
+        record["model"] = self.model as CKRecordValue?
+        record["promptTokens"] = self.promptTokens as CKRecordValue?
+        record["completionTokens"] = self.completionTokens as CKRecordValue?
+        record["totalTokens"] = self.totalTokens as CKRecordValue?
+        record["functionCallName"] = self.functionCallName as CKRecordValue?
+        record["functionCallArgs"] = self.functionCallArgs as CKRecordValue?
+        record["functionLog"] = self.functionLog as CKRecordValue?
+        record["systemIdentifier"] = self.systemIdentifier as CKRecordValue?
+        
+        return record
+    }
+    
+    init?(ckRecord: CKRecord) {
+        guard let id = ckRecord["id"] as? String,
+              let chatId = ckRecord["chatId"] as? String,
+              let createdAt = ckRecord["createdAt"] as? Date,
+              let content = ckRecord["content"] as? String,
+              let roleRawValue = ckRecord["role"] as? String,
+              let role = Chat.Role(rawValue: roleRawValue),
+              let messageTypeRawValue = ckRecord["messageType"] as? String,
+              let messageType = MessageType(rawValue: messageTypeRawValue) else {
+            return nil
+        }
+        
+        self.id = id
+        self.chatId = chatId
+        self.parentMessageId = ckRecord["parentMessageId"] as? String
+        self.createdAt = createdAt
+        self.updatedAt = ckRecord["updatedAt"] as? Date
+        self.content = content
+        self.role = role
+        self.messageType = messageType
+        self.model = ckRecord["model"] as? String
+        self.promptTokens = ckRecord["promptTokens"] as? Int
+        self.completionTokens = ckRecord["completionTokens"] as? Int
+        self.totalTokens = ckRecord["totalTokens"] as? Int
+        self.functionCallName = ckRecord["functionCallName"] as? String
+        self.functionCallArgs = ckRecord["functionCallArgs"] as? String
+        self.functionLog = ckRecord["functionLog"] as? String
+        self.systemIdentifier = ckRecord["systemIdentifier"] as? String
+    }
+}
+
 struct ChatRecord: BlackbirdModel, Codable {
     @BlackbirdColumn var id: String
     @BlackbirdColumn var summary: String?
@@ -149,6 +270,32 @@ struct ChatRecord: BlackbirdModel, Codable {
 
 extension Chat.Role: @unchecked Sendable, BlackbirdStringEnum {
     public static var allCases: [Chat.Role] = [.system, .assistant, .function, .user]
+}
+
+extension ChatRecord {
+    var ckrecord: CKRecord {
+        let recordId = CKRecord.ID(recordName: self.id)
+        let record = CKRecord(recordType: "Chat", recordID: recordId)
+        
+        record["id"] = self.id as CKRecordValue
+        record["summary"] = self.summary as CKRecordValue?
+        record["createdAt"] = self.createdAt as CKRecordValue
+        record["updatedAt"] = self.updatedAt as CKRecordValue?
+        
+        return record
+    }
+    
+    init?(ckRecord: CKRecord) {
+        guard let id = ckRecord["id"] as? String,
+              let createdAt = ckRecord["createdAt"] as? Date else {
+            return nil
+        }
+        
+        self.id = id
+        self.summary = ckRecord["summary"] as? String
+        self.createdAt = createdAt
+        self.updatedAt = ckRecord["updatedAt"] as? Date
+    }
 }
 
 struct EmbeddingRecord: BlackbirdModel, Codable {

@@ -14,6 +14,7 @@
 		530948D82A81CC0500EC98F9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 530948D72A81CC0500EC98F9 /* Assets.xcassets */; };
 		530948DB2A81CC0500EC98F9 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 530948D92A81CC0500EC98F9 /* LaunchScreen.storyboard */; };
 		5328865C2AC64EEC00B7FB92 /* AlertToast in Frameworks */ = {isa = PBXBuildFile; productRef = 5328865B2AC64EEC00B7FB92 /* AlertToast */; };
+		532E06692B19DD8700E911A8 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = 532E06682B19DD8700E911A8 /* OpenAI */; };
 		532F313B2AC7C3260012D939 /* AddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532F313A2AC7C3260012D939 /* AddButton.swift */; };
 		533AFB2C2AD75D2400B24FE3 /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = 533AFB2B2AD75D2400B24FE3 /* WrappingHStack */; };
 		533AFB2E2ADA325C00B24FE3 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533AFB2D2ADA325C00B24FE3 /* BrowserViewModel.swift */; };
@@ -67,7 +68,8 @@
 		5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6492A9199DA00BA85A1 /* SwiftyContacts */; };
 		5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D64C2A919B4700BA85A1 /* GoogleSignIn */; };
 		5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6512A9567E300BA85A1 /* OrderedCollections */; };
-		53AF6BB12B093367003AC95E /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = 53AF6BB02B093367003AC95E /* OpenAI */; };
+		53AE73D32B258DB7001B6A15 /* PagerTabStripView in Frameworks */ = {isa = PBXBuildFile; productRef = 53AE73D22B258DB7001B6A15 /* PagerTabStripView */; };
+		53AE73D52B26EDD0001B6A15 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */; };
 		53FC504F2A9DB67300AC2AD3 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */; };
 /* End PBXBuildFile section */
 
@@ -152,6 +154,7 @@
 		5384D63E2A8EF2F200BA85A1 /* ConvertMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConvertMedia.swift; sourceTree = "<group>"; };
 		5384D6432A8FF05E00BA85A1 /* Google.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Google.swift; sourceTree = "<group>"; };
 		5385C0B92AB4338D00388CA9 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -172,7 +175,7 @@
 				538106402AB124E8007F759E /* SwiftSoup in Frameworks */,
 				5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */,
 				5384D5FB2A81D3D000BA85A1 /* GRDB in Frameworks */,
-				53AF6BB12B093367003AC95E /* OpenAI in Frameworks */,
+				532E06692B19DD8700E911A8 /* OpenAI in Frameworks */,
 				5384D6372A8DD66A00BA85A1 /* SwiftDate in Frameworks */,
 				5384D62A2A89689C00BA85A1 /* Blackbird in Frameworks */,
 				5384D5F82A81D3A100BA85A1 /* USearch in Frameworks */,
@@ -180,6 +183,7 @@
 				5384D6472A916C8B00BA85A1 /* AsyncLocationKit in Frameworks */,
 				538106242AA07432007F759E /* FFmpeg in Frameworks */,
 				5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */,
+				53AE73D32B258DB7001B6A15 /* PagerTabStripView in Frameworks */,
 				5384D61E2A82F77A00BA85A1 /* Splash in Frameworks */,
 				5384D61B2A82F74A00BA85A1 /* MarkdownUI in Frameworks */,
 			);
@@ -238,6 +242,7 @@
 				53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */,
 				537865F62AE381AA0028FFDE /* CameraView.swift */,
 				537865F82AE381BE0028FFDE /* CameraViewModel.swift */,
+				53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */,
 				5384D63A2A8EF2C200BA85A1 /* Contacts.swift */,
 				534B754D2AD498BB00C16026 /* EventKit.swift */,
 				5384D63C2A8EF2D300BA85A1 /* Location.swift */,
@@ -311,7 +316,8 @@
 				53002D392AB900CA007AAFF4 /* FuzzyFind */,
 				5328865B2AC64EEC00B7FB92 /* AlertToast */,
 				533AFB2B2AD75D2400B24FE3 /* WrappingHStack */,
-				53AF6BB02B093367003AC95E /* OpenAI */,
+				532E06682B19DD8700E911A8 /* OpenAI */,
+				53AE73D22B258DB7001B6A15 /* PagerTabStripView */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -382,7 +388,8 @@
 				53002D382AB900CA007AAFF4 /* XCRemoteSwiftPackageReference "FuzzyFind" */,
 				5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */,
 				533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
-				53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */,
+				532E06672B19DD8700E911A8 /* XCRemoteSwiftPackageReference "OpenAI" */,
+				53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -422,6 +429,7 @@
 				53FC504F2A9DB67300AC2AD3 /* ChatMessage.swift in Sources */,
 				5384D6072A81DE3C00BA85A1 /* DocumentPicker.swift in Sources */,
 				538106352AA83E76007F759E /* TextSplitter.swift in Sources */,
+				53AE73D52B26EDD0001B6A15 /* SubscriptionView.swift in Sources */,
 				537865F72AE381AA0028FFDE /* CameraView.swift in Sources */,
 				537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */,
 				5384D6202A82F79500BA85A1 /* Secrets.swift in Sources */,
@@ -793,6 +801,14 @@
 				kind = branch;
 			};
 		};
+		532E06672B19DD8700E911A8 /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/OpenAI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.2.5;
+			};
+		};
 		533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/dkk/WrappingHStack";
@@ -937,12 +953,12 @@
 				minimumVersion = 1.0.0;
 			};
 		};
-		53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+		53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/MacPaw/OpenAI.git";
+			repositoryURL = "https://github.com/xmartlabs/PagerTabStripView";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -957,6 +973,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */;
 			productName = AlertToast;
+		};
+		532E06682B19DD8700E911A8 /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 532E06672B19DD8700E911A8 /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
 		};
 		533AFB2B2AD75D2400B24FE3 /* WrappingHStack */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1053,10 +1074,10 @@
 			package = 5384D6502A9567E200BA85A1 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
 		};
-		53AF6BB02B093367003AC95E /* OpenAI */ = {
+		53AE73D22B258DB7001B6A15 /* PagerTabStripView */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 53AF6BAF2B093367003AC95E /* XCRemoteSwiftPackageReference "OpenAI" */;
-			productName = OpenAI;
+			package = 53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */;
+			productName = PagerTabStripView;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

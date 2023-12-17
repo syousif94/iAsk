@@ -79,7 +79,6 @@ class ChatViewModel: ObservableObject {
     @Published var presentedText: String = ""
     @Published var codeLanguage: String = ""
     @Published var highlightingReady: Bool = false
-    @Published var codeSelection: Range<String.Index> = "".startIndex..<"".endIndex
     
     @Published var menuShown: Bool = false
     
@@ -135,7 +134,9 @@ class ChatViewModel: ObservableObject {
         scrollMessagesList.send(0)
         
         if Application.isCatalyst {
-            focusInputNotification.send(nil)
+            DispatchQueue.main.async {
+                focusInputNotification.send(nil)
+            }
         }
     }
     
@@ -622,20 +623,6 @@ class ChatViewModel: ObservableObject {
         
         self.latestAttachments = messages.reversed().flatMap { $0.attachments }
         
-//        if let text = await getTextForChat(chatModel: self), !text.isEmpty, let message = chatMessages.last?.content {
-//            
-//            let lastIndex = chatMessages.count - 1
-//            
-//            chatMessages[lastIndex] = .init(role: .user, content: """
-//            Use the following context to complete this request: \(message)
-//            
-//            <CONTEXT>
-//            
-//            \(text)
-//            
-//            """)
-//        }
-        
         let functions = getFunctions()
         
         let query = ChatQuery(model: model, messages: chatMessages, functions: functions, temperature: 0.0)
@@ -654,7 +641,7 @@ class ChatViewModel: ObservableObject {
             case .success(let result):
                 if let text = result.choices[0].delta.content {
                     DispatchQueue.main.async {
-                        self.sentenceSplitter.handleStreamChunk(text)
+//                        self.sentenceSplitter.handleStreamChunk(text)
                         aiMessage.content += text
                     }
                 }
@@ -700,6 +687,11 @@ class ChatViewModel: ObservableObject {
                 print(error)
             }
         } completion: { [aiMessage, lastUserMessage] error in
+            
+            if error != nil {
+                print("answering failed", error)
+                return
+            }
             
             if let answering = lastUserMessage?.answering, !answering {
                 return
@@ -827,46 +819,7 @@ class ChatViewModel: ObservableObject {
                         let args = try call.toArgs(SearchArgs.self)
                         Task {
                             let results = await Browser.shared.search(query: args.query)
-                            
-//                            let isEnoughInfoMessage = """
-//                            Determine if you can answer the following question based on the context.
-//                            Question:
-//                            \(lastUserMessage?.content ?? "")
-//                            Context:
-//                            \(results.answerText ?? "")
-//                            """
-//                            
-//                            let isEnoughInfo = await determine([.init(role: .user, content: isEnoughInfoMessage)])
-//                            
-//                            print("is enough info", isEnoughInfo, isEnoughInfoMessage)
-//                            
-//                            if isEnoughInfo {
-//                                let functionOutput = """
-//                                    {
-//                                        "text":"\(results.answerText ?? "")"
-//                                    }
-//                                """
-//                                
-//                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .data, functionCallName: call.name)
-//                                
-//                                let functionMessage = Message(record: functionMessageRecord)
-//                                
-//                                DispatchQueue.main.async {
-//                                    self.messages.append(functionMessage)
-//                                    self.endGenerating(userMessage: lastUserMessage)
-//                                    aiMessage.answering = false
-//                                    Task {
-//                                        async let saveAi = aiMessage.save()
-//                                        async let saveFn = functionMessage.save()
-//                                        async let callChat = self.callChat()
-//                                        await saveAi
-//                                        await saveFn
-//                                        await callChat
-//                                    }
-//                                }
-//                                return
-//                            }
-                            
+
                             DispatchQueue.main.async {
                                 aiMessage.functionLog += "Obtained \(results.links.count) results"
                             }
@@ -897,7 +850,7 @@ class ChatViewModel: ObservableObject {
                                     
                                     DispatchQueue.main.async {
                                         self.messages.append(functionMessage)
-                                        self.endGenerating(userMessage: lastUserMessage)
+//                                        self.endGenerating(userMessage: lastUserMessage)
                                         aiMessage.answering = false
                                         Task {
                                             async let saveAi = aiMessage.save()
@@ -1059,41 +1012,40 @@ class ChatViewModel: ObservableObject {
                         
                         Task {
                             
-                            let urls = files.compactMap { filePath -> URL? in
+                            let texts = files.compactMap { filePath -> String? in
                                 
-                                var downloadPath: URL? = nil
-                                
-                                if let attachment = self.latestAttachments.first(where: { a in
-                                    
+                                guard let attachment = self.latestAttachments.first(where: { a in
+
                                     if a.dataRecord.dataType == .url, let url = a.url, let path = getDownloadURL(for: url) {
                                         let name = path.lastPathComponent
                                         let isTheOne = name == filePath
-                                        if isTheOne {
-                                            downloadPath = path
-                                        }
+
                                         return isTheOne
                                     }
-                                    
+
                                     let filenameMatch = a.dataRecord.name == filePath && a.hasText
                                     if filenameMatch {
                                         return true
                                     }
-                                    
-                                    return false
-                                }) {
-                                    return downloadPath ?? attachment.url
-                                }
 
-                                return URL(string: filePath)
+                                    return false
+                                }) else {
+                                    return nil
+                                }
+                                
+                                if let text = attachment.readFile() {
+                                    return """
+                                    file_path:
+                                    \(filePath)
+                                    text:
+                                    \(text)
+                                    """
+                                }
+                                
+                                return nil
                             }
                             
-                            let text = await readFiles(urls: urls) {
-                                return await getTerms(for: self)
-                            }
-                            
-                            if let text = text {
-                                functionMessage.content = text
-                            }
+                            functionMessage.content = texts.joined(separator: "\n")
                             
                             DispatchQueue.main.async {
                                 aiMessage.answering = false
@@ -1157,9 +1109,12 @@ class ChatViewModel: ObservableObject {
             }
             else {
                 self.endGenerating(userMessage: lastUserMessage)
-                Task {
-                    await aiMessage.save()
+                DispatchQueue.main.async {
+                    Task {
+                        await aiMessage.save()
+                    }
                 }
+                
                 guard error == nil else {
                     print(error)
                     return

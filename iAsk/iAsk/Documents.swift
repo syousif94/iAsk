@@ -195,7 +195,7 @@ func download(url: URL) async throws {
     else {
         print("dumping")
         let html = await Browser.shared.fetchHTML(from: url)
-        print("dumped html to file", url.absoluteString, downloadPath.absoluteString, html)
+        print("dumped html to file", url.absoluteString, downloadPath.absoluteString)
         try? html?.write(to: downloadPath, atomically: true, encoding: .utf8)
     }
 }
@@ -273,13 +273,17 @@ func getPDFText(url: URL) -> NSMutableAttributedString? {
 }
 
 /// handles getting the text from any url
-func extractText(url: URL) -> String? {
+func extractText(url: URL, dataType: DataType? = nil) -> String? {
     
-    guard let path = url.isFileURL ? url : getDownloadURL(for: url) else {
-        return nil
-    }
+    print("extracting text for url", url.absoluteString)
+    
+//    guard let path = url.isFileURL ? url : getDownloadURL(for: url) else {
+//        return nil
+//    }
     
     let dataType = url.dataType
+//    
+//    print("loading from local path", url.absoluteString, path, dataType)
     
     if dataType == .doc, let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
         // FIXME: extract the text from image based pdfs
@@ -306,7 +310,7 @@ func extractText(url: URL) -> String? {
         do {
             let contents = try String(contentsOf: url, encoding: .utf8)
             
-            if fileType == .html {
+            if fileType == .html, dataType == .url {
                 return extractText(html: contents)
             }
             
@@ -420,7 +424,7 @@ func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> 
 
 func indexText(attachment: Attachment) async throws {
     
-    guard let url = attachment.url, let text = extractText(url: url) else {
+    guard let url = attachment.url, let text = extractText(url: url, dataType: attachment.dataRecord.dataType) else {
         return
     }
     

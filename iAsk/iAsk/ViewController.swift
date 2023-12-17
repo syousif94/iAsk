@@ -315,8 +315,14 @@ class ViewController: UIViewController {
             UIKeyCommand(input: "f", modifierFlags: [.command], action: #selector(search)),
             UIKeyCommand(input: "s", modifierFlags: [.command], action: #selector(saveChat)),
             UIKeyCommand(input: "4", modifierFlags: [.command], action: #selector(togglePro)),
-            UIKeyCommand(input: ",", modifierFlags: [.command], action: #selector(showSettings))
+            UIKeyCommand(input: ",", modifierFlags: [.command], action: #selector(showSettings)),
+            UIKeyCommand(input: "c", modifierFlags: [.control], action: #selector(stopAnswering))
         ]
+    }
+    
+    @objc func stopAnswering() {
+        currentChat.endGenerating(userMessage: nil)
+//        currentChat.proMode.toggle()
     }
     
     @objc func togglePro() {
@@ -397,22 +403,24 @@ enum GenericError: Error {
 
 extension ViewController: UIDropInteractionDelegate {
     func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool {
-        let documentTypes: [String] = [
-            kUTTypeFolder as String,
-            kUTTypePDF as String,
-            kUTTypePlainText as String,
-            "com.microsoft.word.doc",
-            "org.openxmlformats.wordprocessingml.document",
-            "com.microsoft.excel.xls",
-            "org.openxmlformats.spreadsheetml.sheet",
-            "com.microsoft.powerpoint.ppt",
-            "org.openxmlformats.presentationml.presentation",
-            kUTTypeJSON as String,
-            kUTTypeImage as String,
-            kUTTypeMovie as String,
-            kUTTypeSourceCode as String
-        ]
-        return session.hasItemsConforming(toTypeIdentifiers: documentTypes)
+//        let documentTypes: [String] = [
+//            kUTTypeFolder as String,
+//            kUTTypePDF as String,
+//            kUTTypePlainText as String,
+//            "com.microsoft.word.doc",
+//            "org.openxmlformats.wordprocessingml.document",
+//            "com.microsoft.excel.xls",
+//            "org.openxmlformats.spreadsheetml.sheet",
+//            "com.microsoft.powerpoint.ppt",
+//            "org.openxmlformats.presentationml.presentation",
+//            kUTTypeJSON as String,
+//            kUTTypeImage as String,
+//            kUTTypeMovie as String,
+//            kUTTypeSourceCode as String,
+//            kUTTypeHTML as String
+//        ]
+//        return session.hasItemsConforming(toTypeIdentifiers: documentTypes)
+        return true
     }
     
     func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {

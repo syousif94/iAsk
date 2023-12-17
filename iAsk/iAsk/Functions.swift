@@ -352,23 +352,6 @@ func getFunctions() -> [ChatFunctionDeclaration] {
     return functions
 }
 
-struct FunctionCallParams: Codable {
-    let name: String
-    let arguments: String
-    
-    var ai: ChatFunctionCall? {
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-        do {
-            let jsonData = try encoder.encode(self)
-            let call = try decoder.decode(ChatFunctionCall.self, from: jsonData)
-            return call
-        } catch {
-            return nil
-        }
-    }
-}
-
 struct DetermineArgs: Codable {
     let isTrue: Bool
 }

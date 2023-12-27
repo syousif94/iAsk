@@ -19,7 +19,15 @@ enum MessageChoices: Codable {
     case contacts(choices: [ContactManager.Choice])
 }
 
-class Message: ObservableObject {
+class Message: ObservableObject, Equatable, Identifiable {
+    static func == (lhs: Message, rhs: Message) -> Bool {
+        return lhs.record == rhs.record
+    }
+    
+    var id: String {
+        return record.id
+    }
+    
     // the database representation of the message only
     var record: MessageRecord
     

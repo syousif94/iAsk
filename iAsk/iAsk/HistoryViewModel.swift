@@ -32,6 +32,28 @@ class ChatLog: ObservableObject, Equatable {
         }
     }
     
+    func shareDialog() {
+        
+        let chatName = messages.first(where: { $0.record.messageType == .text })?.content.replacing(" ", with: "-") ?? record.id
+        
+        guard let url = Disk.cache.getPath(for: "exports/\(chatName).md") else {
+            return
+        }
+        
+        let contentArr = messages.compactMap { $0.md }
+        
+        if contentArr.isEmpty {
+            return
+        }
+        
+        let content = contentArr.joined(separator: "\n\n")
+        
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+        
+        let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        Application.keyWindow?.rootViewController?.present(av, animated: true, completion: nil)
+    }
+    
     func updateMessages() {
         self.messages = self.messageDict.values.elements
     }
@@ -49,6 +71,14 @@ class HistoryViewModel: ObservableObject {
     var chatLogs = OrderedDictionary<String, ChatLog>()
     
     var searchResultIds = OrderedSet<String>()
+    
+    func deleteChatLog(log: ChatLog) {
+        chatLogs.removeValue(forKey: log.record.id)
+        updateChats()
+        Task {
+            try? await log.record.delete(from: Database.shared.db)
+        }
+    }
     
     func updateChats() {
         var chats = self.chatLogs.values.elements

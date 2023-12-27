@@ -13,12 +13,12 @@ import AVFoundation
 import Speech
 import Combine
 import UIKit
-import Splash
 import CodeEditor
 import WrappingHStack
 import AlertToast
 import NanoID
 import SwiftDate
+import Highlightr
 
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
@@ -60,14 +60,14 @@ struct QuestionInput: View {
     var body: some View {
         let isEmptySpeech = transcript.isEmpty
 
-        let placeholder = "What can I help you with?"
+        let placeholder = Application.isCatalyst ? "Click to ask me anything" : "Tap to ask me anything"
         
         ZStack(alignment: .trailing) {
             TextField(placeholder, text: $transcript, axis: .vertical)
                 .foregroundColor(isEmptySpeech ? Color.gray : Color.primary)
                 .padding()
                 .padding(.trailing, 40)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .focused($isFocused)
                 .onChange(of: transcript, { oldValue, newValue in
                     let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
@@ -83,15 +83,21 @@ struct QuestionInput: View {
                             
                             let matchedString = (newValue as NSString).substring(with: match.range)
                             
-                            let lastWords = splitString(mainString: oldValue, separator: " ")
+                            let lastWords = splitString(mainString: oldValue, separator: " ").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                            
+                            print("last words", lastWords)
                             
                             for word in lastWords {
-                                if isSubstring(mainString: matchedString, subString: word) || isSubstring(mainString: word, subString: matchedString) {
+                                if matchedString.hasPrefix(word) || isSubstring(mainString: word, subString: matchedString) {
+                                    print("substring exists in last words", matchedString, word)
                                     return
                                 }
                             }
                             
+                            print("url not being typed")
+                            
                             if isURLPrecededByColon(url: url.absoluteString, in: newValue) {
+                                print("the url is preceded by a colon")
                                 return
                             }
                             
@@ -141,6 +147,8 @@ struct QuestionInput: View {
 
 let scrollMessagesList = NotificationPublisher<CGFloat>()
 
+
+
 struct ChatView: View {
     @EnvironmentObject var chat: ChatViewModel
     
@@ -160,76 +168,116 @@ struct ChatView: View {
     
     @State var showPhotos = false
     
+    let spaceName = "scroll"
+    @State var wholeSize: CGSize = .zero
+    @State var scrollViewSize: CGSize = .zero
+    @State var bottomButtonSize: CGSize = .zero
+    @State var hasReachedBottom = false
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                ScrollViewReader { scrollProxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            
-                            ForEach(chat.messages, id: \.record.id) { message in
-                                MessageView(message: message, functionType: message.functionType, answering: message.answering)
-                                    .padding(.horizontal, chat.isWide ? 40 : 0)
+                ChildSizeReader(size: $wholeSize) {
+                    ScrollViewReader { scrollProxy in
+                        ScrollView {
+                            ChildSizeReader(size: $scrollViewSize) {
+                                LazyVStack(alignment: .leading, spacing: 0) {
                                     
+                                    ForEach(chat.messages, id: \.record.id) { message in
+                                        MessageView(message: message, functionType: message.functionType, answering: message.answering)
+                                            .padding(.horizontal, chat.isWide ? 40 : 0)
+                                    }
+                                    
+                                    QuestionInput(transcript: $chat.transcript, isFocused: _isFocused, isAnswering: .constant(false))
+                                        .padding(.horizontal, chat.isWide ? 40 : 0)
+                                        .onAppear {
+                                            if Application.isCatalyst {
+                                                isFocused = true
+                                            }
+                                        }
+                                    
+                                    Button(action: {
+                                        if (chat.menuShown) {
+                                            chat.menuShown = false
+                                            return
+                                        }
+                                        else if !Application.isCatalyst, isFocused {
+                                            UIApplication.shared.endEditing()
+                                        }
+                                        else if !Application.isCatalyst || !isFocused {
+                                            isFocused.toggle()
+                                        }
+                                        
+                                    }) {
+                                        Text("")
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    }
+                                    .frame(height: geometry.size.height * 0.7)
+                                }
+                                .padding(.top, chat.isWide ? 8 : 0)
+                                .id("top")
+                                .frame(idealWidth: geometry.size.width, maxHeight: .infinity, alignment: .top)
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                                key: ViewOffsetKey.self,
+                                                value: -1 * proxy.frame(in: .named(spaceName)).origin.y
+                                            )
+                                        }
+                                    )
+                                .onPreferenceChange(
+                                    ViewOffsetKey.self,
+                                    perform: { value in
+                                        print("offset: \(value)") // offset: 1270.3333333333333 when User has reached the bottom
+                                        print("height: \(scrollViewSize.height)") // height: 2033.3333333333333
+                                        print("whole height: \(wholeSize.height)")
+                                        print("geometry height", geometry.size.height)
+                                        print("bottomButtonSize", bottomButtonSize.height)
+
+                                        if value >= scrollViewSize.height - wholeSize.height - bottomButtonSize.height {
+                                            hasReachedBottom = true
+                                            print("User has reached the bottom of the ScrollView.")
+                                        } else {
+                                            hasReachedBottom = false
+                                            print("not reached.")
+                                        }
+                                    }
+                                )
                             }
                             
-                            QuestionInput(transcript: $chat.transcript, isFocused: _isFocused, isAnswering: .constant(false))
-                                .padding(.horizontal, chat.isWide ? 40 : 0)
-                                .onAppear {
-                                    if Application.isCatalyst {
-                                        isFocused = true
+                            
+                                
+                            
+                            GeometryReader { contentGeometry in
+                                ChildSizeReader(size: $bottomButtonSize) {
+                                    Button(action: {
+                                        if (chat.menuShown) {
+                                            chat.menuShown = false
+                                            return
+                                        }
+                                        else if !Application.isCatalyst, isFocused {
+                                            UIApplication.shared.endEditing()
+                                        }
+                                        else if !Application.isCatalyst || !isFocused {
+                                            isFocused.toggle()
+                                        }
+                                    }) {
+                                        Text("")
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     }
+                                    .frame(minHeight: geometry.size.height + geometry.safeAreaInsets.top + 10 + geometry.safeAreaInsets.bottom - contentGeometry.frame(in: .global).minY, maxHeight: .infinity)
+                                    .offset(x: 0, y: -10)
+                                    .id("scrollBottom")
                                 }
-                                
-
-                            Button(action: {
-                                if (chat.menuShown) {
-                                    chat.menuShown = false
-                                    return
-                                }
-                                else if !Application.isCatalyst, isFocused {
-                                    UIApplication.shared.endEditing()
-                                }
-                                else if !Application.isCatalyst || !isFocused {
-                                    isFocused.toggle()
-                                }
-                                
-                            }) {
-                                Text("")
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
-                            .frame(height: geometry.size.height * 0.7)
+                            
                         }
-                        .padding(.top, chat.isWide ? 8 : 0)
-                        .id("top")
-                        .frame(idealWidth: geometry.size.width, maxHeight: .infinity, alignment: .top)
-                        
-                        GeometryReader { contentGeometry in
-                            Button(action: {
-                                if (chat.menuShown) {
-                                    chat.menuShown = false
-                                    return
-                                }
-                                else if !Application.isCatalyst, isFocused {
-                                    UIApplication.shared.endEditing()
-                                }
-                                else if !Application.isCatalyst || !isFocused {
-                                    isFocused.toggle()
-                                }
-                            }) {
-                                Text("")
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            }
-                            .frame(minHeight: geometry.size.height + geometry.safeAreaInsets.top + 10 + geometry.safeAreaInsets.bottom - contentGeometry.frame(in: .global).minY, maxHeight: .infinity)
-                            .offset(x: 0, y: -10)
-                            .id("scrollBottom")
+                        .scrollDismissesKeyboard(.interactively)
+                        .onAppear {
+                            chat.scrollProxy = scrollProxy
                         }
-                        
                     }
-                    .scrollDismissesKeyboard(.interactively)
-                    .onAppear {
-                        chat.scrollProxy = scrollProxy
-                    }
+                    
                 }
                 
                 
@@ -258,7 +306,7 @@ struct ChatView: View {
                         })
                         
                 }
-                .padding(.bottom, geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
+                .padding(.bottom, Application.isPad && !Application.isCatalyst ? 10 : geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
                 
                 // MARK: ADD BUTTON
                 
@@ -272,7 +320,7 @@ struct ChatView: View {
                             Image(systemName: "speaker.wave.2.fill")
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
-                                .tint(chat.speakAnswer ? chat.proMode ? .orange : .blue : .gray)
+                                .tint(chat.speakAnswer ? chat.proMode ? .blue : .blue : .gray)
                                 .frame(height: 22)
                                 .padding(17)
                                 .animation(Animation.linear, value: chat.proMode)
@@ -292,7 +340,7 @@ struct ChatView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(height: 26)
                                 .padding(15)
-                                .tint(chat.proMode ? .orange : .blue)
+                                .tint(chat.proMode ? .blue : .blue)
                                 .animation(Animation.linear, value: chat.proMode)
                         }
                         .opacity(keyboardObserver.isKeyboardVisible ? 0 : 1)
@@ -303,7 +351,12 @@ struct ChatView: View {
                     .padding(.bottom, 2)
                         
                 }
-                .padding(.bottom, geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
+                .padding(.bottom, Application.isPad && !Application.isCatalyst ? 10 : geometry.safeAreaInsets.bottom == 0 ? 20 : 0)
+                
+                // MARK: TIPS VIEW
+                
+                TipsView()
+                    .opacity(keyboardObserver.isKeyboardVisible ? 0 : 1)
                 
                 // MARK: INPUT BAR
                 
@@ -320,7 +373,7 @@ struct ChatView: View {
             }
             .background(
                 colorScheme == .dark
-                ? Color(hex: "#333333")
+                ? Color(hex: "#2b3136")
                 : Color(hex: "#ffffff")
             )
             .sheet(isPresented: $chat.showSettings,  content: {
@@ -382,7 +435,7 @@ struct InputBar: View {
                 Image(systemName: "plus")
                     .font(.system(size: 24))
                     .padding()
-                    .tint(chat.proMode ? .orange : .blue)
+                    .tint(chat.proMode ? .blue : .blue)
                     .animation(Animation.linear, value: chat.proMode)
             }
             .padding(4)
@@ -444,7 +497,7 @@ struct InputMicButton: View {
         }) {
             ZStack {
                 Image(systemName: "mic.fill")
-                    .tint(chat.proMode ? .orange : .blue)
+                    .tint(chat.proMode ? .blue : .blue)
                     .font(.system(size: 24))
                     .padding()
                     .opacity(chat.isRecording ? 0 : 1)
@@ -507,66 +560,26 @@ struct InputMicButton: View {
     }
 }
 
-struct SplashCodeSyntaxHighlighter: CodeSyntaxHighlighter {
-  private let syntaxHighlighter: SyntaxHighlighter<TextOutputFormat>
-
-  init(theme: Splash.Theme) {
-    self.syntaxHighlighter = SyntaxHighlighter(format: TextOutputFormat(theme: theme))
-  }
-
-  func highlightCode(_ content: String, language: String?) -> Text {
-
-      return self.syntaxHighlighter.highlight(content)
-  }
+struct HighlightrCodeSyntaxHighlighter: CodeSyntaxHighlighter {
+    private let syntaxHighlighter: Highlightr
+    
+    init(theme: String) {
+        self.syntaxHighlighter = Highlightr()!
+        self.syntaxHighlighter.setTheme(to: theme)
+    }
+    
+    func highlightCode(_ code: String, language: String?) -> Text {
+        if let highlightedCode = syntaxHighlighter.highlight(code, as: language) {
+            return Text(AttributedString(highlightedCode))
+        }
+        return Text("")
+    }
 }
 
-extension CodeSyntaxHighlighter where Self == SplashCodeSyntaxHighlighter {
-  static func splash(theme: Splash.Theme) -> Self {
-    SplashCodeSyntaxHighlighter(theme: theme)
-  }
-}
-
-struct TextOutputFormat: OutputFormat {
-    private let theme: Splash.Theme
-
-    init(theme: Splash.Theme) {
-    self.theme = theme
-  }
-
-  func makeBuilder() -> Builder {
-    Builder(theme: self.theme)
-  }
-}
-
-extension TextOutputFormat {
-  struct Builder: OutputBuilder {
-      private let theme: Splash.Theme
-    private var accumulatedText: [Text]
-
-      fileprivate init(theme: Splash.Theme) {
-      self.theme = theme
-      self.accumulatedText = []
+extension CodeSyntaxHighlighter where Self == HighlightrCodeSyntaxHighlighter {
+    static func highlightr(theme: String) -> Self {
+        HighlightrCodeSyntaxHighlighter(theme: theme)
     }
-
-    mutating func addToken(_ token: String, ofType type: TokenType) {
-      let color = self.theme.tokenColors[type] ?? self.theme.plainTextColor
-      self.accumulatedText.append(Text(token).foregroundColor(.init(uiColor: color)))
-    }
-
-    mutating func addPlainText(_ text: String) {
-      self.accumulatedText.append(
-        Text(text).foregroundColor(.init(uiColor: self.theme.plainTextColor))
-      )
-    }
-
-    mutating func addWhitespace(_ whitespace: String) {
-      self.accumulatedText.append(Text(whitespace))
-    }
-
-    func build() -> Text {
-      self.accumulatedText.reduce(Text(""), +)
-    }
-  }
 }
 
 struct MessageView: View {
@@ -591,7 +604,7 @@ struct MessageView: View {
             .padding(.bottom)
             .frame(alignment: .topLeading)
             .multilineTextAlignment(.leading)
-            .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
+            .markdownCodeSyntaxHighlighter(.highlightr(theme: colorScheme == .dark ? "monokai" : "xcode"))
             .markdownBlockStyle(\.table, body: { configuration in
                 configuration.label.padding(.top, 6)
             })
@@ -629,7 +642,7 @@ struct MessageView: View {
             .padding()
             .frame(alignment: .topLeading)
             .multilineTextAlignment(.leading)
-            .markdownCodeSyntaxHighlighter(.splash(theme: self.theme))
+            .markdownCodeSyntaxHighlighter(.highlightr(theme: colorScheme == .dark ? "monokai" : "xcode"))
             .markdownBlockStyle(\.paragraph, body: { configuration in
                 VStack {
                     configuration.label
@@ -970,7 +983,7 @@ struct EventsMessageView: View {
                 Spacer()
             }
             .background(Color(hex:"#000000", alpha: 0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             
 //            if !answering {
 //                HStack {
@@ -1246,17 +1259,6 @@ struct MarkdownCodeView: View {
         
     }
 
-}
-
-private extension MessageView {
-    var theme: Splash.Theme {
-        switch colorScheme {
-        case .dark:
-            return .wwdc17(withFont: .init(size: 16))
-        default:
-            return .sunset(withFont: .init(size: 16))
-        }
-    }
 }
 
 // 2. DataMessageView

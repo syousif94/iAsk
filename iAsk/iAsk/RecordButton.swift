@@ -61,7 +61,7 @@ struct RecordButton: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: circleRadius * 1.05, height: circleRadius * 1.05)
-                            .tint(chat.proMode ? .orange : .blue)
+                            .tint(chat.proMode ? .blue : .blue)
                             .animation(Animation.linear, value: chat.proMode)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

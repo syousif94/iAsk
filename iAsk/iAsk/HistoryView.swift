@@ -97,7 +97,7 @@ struct HistoryView: View {
             }
             .background(
                 colorScheme == .dark
-                ? Color(hex: "#333333")
+                ? Color(hex: "#2b3136")
                 : Color(hex: "#ffffff")
             )
             .environmentObject(history)
@@ -112,7 +112,7 @@ struct HistorySearchInput: View {
     
     var body: some View {
         ZStack(alignment: .leading) {
-            TextField("Search", text: $history.searchValue)
+            TextField("Search History", text: $history.searchValue)
                 .padding(.horizontal)
                 .padding(.leading, 30)
                 .frame(minHeight: 54)
@@ -167,6 +167,7 @@ struct HistorySearchInput: View {
 struct HistoryListItem: View {
     @Binding var log: ChatLog
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var history: HistoryViewModel
     
     var body: some View {
         Button(action: {
@@ -210,25 +211,16 @@ struct HistoryListItem: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .contextMenu {
                 Button {
-                    print("Share")
+                    log.shareDialog()
                 } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Label("Share Chat", systemImage: "square.and.arrow.up")
                 }
                 Button {
-                    print("Duplicate")
-                } label: {
-                    Label("Duplicate", systemImage: "doc.on.doc")
-                }
-                Button {
-                    print("Private")
-                } label: {
-                    Label("Hide", systemImage: "eye")
-                }
-                Button {
-                    print("Delete")
+                    history.deleteChatLog(log: log)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                
                 
             }
         }

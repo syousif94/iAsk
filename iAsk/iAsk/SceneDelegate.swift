@@ -57,6 +57,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             }
         }
         
+        print(importedUrls)
+        
         DispatchQueue.main.async {
             importedDocumentNotification.send(importedUrls)
         }
@@ -101,6 +103,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 func getShareUrls(from urlString: String) -> [URL]? {
+    
+    print("share url string", urlString)
+    
     guard let url = URL(string: urlString),
           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
           let queryItems = components.queryItems else {

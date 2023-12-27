@@ -17,8 +17,9 @@ class StoreViewModel: ObservableObject {
     @Published private(set) var subscriptions: [Product] = []
     @Published private(set) var purchasedSubscriptions: [Product] = []
     @Published private(set) var subscriptionGroupStatus: RenewalState?
+    @Published private(set) var subscriptionsLoaded = false
     
-    private let productIds: [String] = ["subscription.yearly", "subscription.monthly"]
+    private let productIds: [String] = ["subscription.monthly"]
     
     var updateListenerTask : Task<Void, Error>? = nil
 
@@ -88,8 +89,6 @@ class StoreViewModel: ObservableObject {
             await transaction.finish()
 
             return transaction
-        case .userCancelled, .pending:
-            return nil
         default:
             return nil
         }
@@ -128,6 +127,10 @@ class StoreViewModel: ObservableObject {
                 print("failed updating products")
             }
         }
+        
+        print("purchased subscriptions", purchasedSubscriptions)
+        
+        subscriptionsLoaded = true
     }
 
 }

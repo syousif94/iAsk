@@ -72,8 +72,6 @@ class ShareViewController: UINavigationController {
                 group.enter()
                 print("file type", fileType)
                 
-                
-                
                 if fileType == UTType.url.identifier {
                     print("its a url")
                     print("pause")
@@ -84,7 +82,7 @@ class ShareViewController: UINavigationController {
                         
                         group.leave()
                     })
-
+                    break
                 }
                 else if fileType == "public.image" {
                     let _ = attachment.loadItem(forTypeIdentifier: fileType) { data, error in

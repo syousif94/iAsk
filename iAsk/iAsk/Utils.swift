@@ -19,7 +19,7 @@ extension UIColor {
             let currentStyle = UITraitCollection.current.userInterfaceStyle
             switch currentStyle {
             case .dark:
-                return UIColor("#333333") // Or any other color for dark mode
+                return UIColor("#2b3136") // Or any other color for dark mode
             case .light, .unspecified:
                 return color // Or any other color for light mode
             @unknown default:
@@ -374,3 +374,38 @@ extension Color {
     }
 }
 
+struct ChildSizeReader<Content: View>: View {
+    @Binding var size: CGSize
+    let content: () -> Content
+    var body: some View {
+        ZStack {
+            content()
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(key: SizePreferenceKey.self, value: proxy.size)
+                    }
+                )
+        }
+        .onPreferenceChange(SizePreferenceKey.self) { preferences in
+            self.size = preferences
+        }
+    }
+}
+
+struct SizePreferenceKey: PreferenceKey {
+    typealias Value = CGSize
+    static var defaultValue: Value = .zero
+
+    static func reduce(value _: inout Value, nextValue: () -> Value) {
+        _ = nextValue()
+    }
+}
+
+struct ViewOffsetKey: PreferenceKey {
+    typealias Value = CGFloat
+    static var defaultValue = CGFloat.zero
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        value += nextValue()
+    }
+}

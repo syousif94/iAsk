@@ -24,6 +24,7 @@
 		534B754E2AD498BB00C16026 /* EventKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754D2AD498BB00C16026 /* EventKit.swift */; };
 		534B75502AD4C1B400C16026 /* Vision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754F2AD4C1B400C16026 /* Vision.swift */; };
 		5353F6C32AF06E0A00B701FE /* StoreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */; };
+		5367514A2B38007D00572E07 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = 536751492B38007D00572E07 /* Highlightr */; };
 		537865F72AE381AA0028FFDE /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F62AE381AA0028FFDE /* CameraView.swift */; };
 		537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F82AE381BE0028FFDE /* CameraViewModel.swift */; };
 		538106242AA07432007F759E /* FFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 538106232AA07432007F759E /* FFmpeg */; };
@@ -39,7 +40,6 @@
 		538106422AB2EA33007F759E /* Photos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 538106412AB2EA33007F759E /* Photos.swift */; };
 		5384D5F52A81D36600BA85A1 /* PinLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D5F42A81D36600BA85A1 /* PinLayout */; };
 		5384D5F82A81D3A100BA85A1 /* USearch in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D5F72A81D3A100BA85A1 /* USearch */; };
-		5384D5FB2A81D3D000BA85A1 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D5FA2A81D3D000BA85A1 /* GRDB */; };
 		5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6042A81DE0B00BA85A1 /* GPTEncoder */; };
 		5384D6072A81DE3C00BA85A1 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6062A81DE3C00BA85A1 /* DocumentPicker.swift */; };
 		5384D6092A81DE6100BA85A1 /* NotificationCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6082A81DE6100BA85A1 /* NotificationCenter.swift */; };
@@ -50,8 +50,6 @@
 		5384D6132A82F61300BA85A1 /* Keyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6122A82F61300BA85A1 /* Keyboard.swift */; };
 		5384D6152A82F6FD00BA85A1 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6142A82F6FD00BA85A1 /* ChatViewModel.swift */; };
 		5384D6182A82F72C00BA85A1 /* NanoID in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6172A82F72C00BA85A1 /* NanoID */; };
-		5384D61B2A82F74A00BA85A1 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D61A2A82F74A00BA85A1 /* MarkdownUI */; };
-		5384D61E2A82F77A00BA85A1 /* Splash in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D61D2A82F77A00BA85A1 /* Splash */; };
 		5384D6202A82F79500BA85A1 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D61F2A82F79500BA85A1 /* Secrets.swift */; };
 		5384D6222A82F8BA00BA85A1 /* Speech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6212A82F8BA00BA85A1 /* Speech.swift */; };
 		5384D6242A82F8D800BA85A1 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5384D6232A82F8D800BA85A1 /* Database.swift */; };
@@ -68,9 +66,10 @@
 		5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6492A9199DA00BA85A1 /* SwiftyContacts */; };
 		5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D64C2A919B4700BA85A1 /* GoogleSignIn */; };
 		5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 5384D6512A9567E300BA85A1 /* OrderedCollections */; };
-		53AE73D32B258DB7001B6A15 /* PagerTabStripView in Frameworks */ = {isa = PBXBuildFile; productRef = 53AE73D22B258DB7001B6A15 /* PagerTabStripView */; };
 		53AE73D52B26EDD0001B6A15 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */; };
 		53FC504F2A9DB67300AC2AD3 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */; };
+		53FF5CDB2B3278B900D7CD88 /* TipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FF5CDA2B3278B900D7CD88 /* TipsView.swift */; };
+		53FF5D012B33813500D7CD88 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 53FF5D002B33813500D7CD88 /* MarkdownUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -156,6 +155,7 @@
 		5385C0B92AB4338D00388CA9 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		53FF5CDA2B3278B900D7CD88 /* TipsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TipsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -171,21 +171,19 @@
 				5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */,
 				5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */,
 				5384D5F52A81D36600BA85A1 /* PinLayout in Frameworks */,
+				5367514A2B38007D00572E07 /* Highlightr in Frameworks */,
 				5384D6322A8C6A2300BA85A1 /* CodeEditor in Frameworks */,
 				538106402AB124E8007F759E /* SwiftSoup in Frameworks */,
 				5384D6522A9567E300BA85A1 /* OrderedCollections in Frameworks */,
-				5384D5FB2A81D3D000BA85A1 /* GRDB in Frameworks */,
 				532E06692B19DD8700E911A8 /* OpenAI in Frameworks */,
 				5384D6372A8DD66A00BA85A1 /* SwiftDate in Frameworks */,
 				5384D62A2A89689C00BA85A1 /* Blackbird in Frameworks */,
 				5384D5F82A81D3A100BA85A1 /* USearch in Frameworks */,
+				53FF5D012B33813500D7CD88 /* MarkdownUI in Frameworks */,
 				53002D3A2AB900CA007AAFF4 /* FuzzyFind in Frameworks */,
 				5384D6472A916C8B00BA85A1 /* AsyncLocationKit in Frameworks */,
 				538106242AA07432007F759E /* FFmpeg in Frameworks */,
 				5384D64D2A919B4700BA85A1 /* GoogleSignIn in Frameworks */,
-				53AE73D32B258DB7001B6A15 /* PagerTabStripView in Frameworks */,
-				5384D61E2A82F77A00BA85A1 /* Splash in Frameworks */,
-				5384D61B2A82F74A00BA85A1 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,6 +238,7 @@
 				5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */,
 				538106302AA16F95007F759E /* Extensions.json */,
 				53FC504E2A9DB67300AC2AD3 /* ChatMessage.swift */,
+				53FF5CDA2B3278B900D7CD88 /* TipsView.swift */,
 				537865F62AE381AA0028FFDE /* CameraView.swift */,
 				537865F82AE381BE0028FFDE /* CameraViewModel.swift */,
 				53AE73D42B26EDD0001B6A15 /* SubscriptionView.swift */,
@@ -297,11 +296,8 @@
 			packageProductDependencies = (
 				5384D5F42A81D36600BA85A1 /* PinLayout */,
 				5384D5F72A81D3A100BA85A1 /* USearch */,
-				5384D5FA2A81D3D000BA85A1 /* GRDB */,
 				5384D6042A81DE0B00BA85A1 /* GPTEncoder */,
 				5384D6172A82F72C00BA85A1 /* NanoID */,
-				5384D61A2A82F74A00BA85A1 /* MarkdownUI */,
-				5384D61D2A82F77A00BA85A1 /* Splash */,
 				5384D6292A89689C00BA85A1 /* Blackbird */,
 				5384D6312A8C6A2300BA85A1 /* CodeEditor */,
 				5384D6362A8DD66A00BA85A1 /* SwiftDate */,
@@ -317,7 +313,8 @@
 				5328865B2AC64EEC00B7FB92 /* AlertToast */,
 				533AFB2B2AD75D2400B24FE3 /* WrappingHStack */,
 				532E06682B19DD8700E911A8 /* OpenAI */,
-				53AE73D22B258DB7001B6A15 /* PagerTabStripView */,
+				53FF5D002B33813500D7CD88 /* MarkdownUI */,
+				536751492B38007D00572E07 /* Highlightr */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -370,11 +367,8 @@
 			packageReferences = (
 				5384D5F32A81D36600BA85A1 /* XCRemoteSwiftPackageReference "PinLayout" */,
 				5384D5F62A81D3A100BA85A1 /* XCRemoteSwiftPackageReference "usearch" */,
-				5384D5F92A81D3D000BA85A1 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				5384D6032A81DE0B00BA85A1 /* XCRemoteSwiftPackageReference "GPTEncoder" */,
 				5384D6162A82F72C00BA85A1 /* XCRemoteSwiftPackageReference "NanoID" */,
-				5384D6192A82F74A00BA85A1 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
-				5384D61C2A82F77A00BA85A1 /* XCRemoteSwiftPackageReference "Splash" */,
 				5384D6282A89689C00BA85A1 /* XCRemoteSwiftPackageReference "Blackbird" */,
 				5384D6302A8C6A2300BA85A1 /* XCRemoteSwiftPackageReference "CodeEditor" */,
 				5384D6352A8DD66A00BA85A1 /* XCRemoteSwiftPackageReference "SwiftDate" */,
@@ -389,7 +383,8 @@
 				5328865A2AC64EEC00B7FB92 /* XCRemoteSwiftPackageReference "AlertToast" */,
 				533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 				532E06672B19DD8700E911A8 /* XCRemoteSwiftPackageReference "OpenAI" */,
-				53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */,
+				53FF5CFF2B33813500D7CD88 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -451,6 +446,7 @@
 				5384D6152A82F6FD00BA85A1 /* ChatViewModel.swift in Sources */,
 				5384D6222A82F8BA00BA85A1 /* Speech.swift in Sources */,
 				5384D63B2A8EF2C200BA85A1 /* Contacts.swift in Sources */,
+				53FF5CDB2B3278B900D7CD88 /* TipsView.swift in Sources */,
 				538106422AB2EA33007F759E /* Photos.swift in Sources */,
 				534A6B542AEB2EB200B8AB7A /* SettingsView.swift in Sources */,
 				5384D60D2A82F44A00BA85A1 /* ChatView.swift in Sources */,
@@ -817,6 +813,14 @@
 				minimumVersion = 2.2.11;
 			};
 		};
+		536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/raspu/Highlightr";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.2;
+			};
+		};
 		538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tylerjonesio/ffmpeg-kit-spm.git";
@@ -857,14 +861,6 @@
 				kind = branch;
 			};
 		};
-		5384D5F92A81D3D000BA85A1 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/groue/GRDB.swift.git";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
 		5384D6032A81DE0B00BA85A1 /* XCRemoteSwiftPackageReference "GPTEncoder" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/alfianlosari/GPTEncoder.git";
@@ -879,22 +875,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
-			};
-		};
-		5384D6192A82F74A00BA85A1 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
-			};
-		};
-		5384D61C2A82F77A00BA85A1 /* XCRemoteSwiftPackageReference "Splash" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/JohnSundell/Splash";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.16.0;
 			};
 		};
 		5384D6282A89689C00BA85A1 /* XCRemoteSwiftPackageReference "Blackbird" */ = {
@@ -953,12 +933,12 @@
 				minimumVersion = 1.0.0;
 			};
 		};
-		53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */ = {
+		53FF5CFF2B33813500D7CD88 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/xmartlabs/PagerTabStripView";
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 4.0.0;
+				minimumVersion = 2.2.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -983,6 +963,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
 			productName = WrappingHStack;
+		};
+		536751492B38007D00572E07 /* Highlightr */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */;
+			productName = Highlightr;
 		};
 		538106232AA07432007F759E /* FFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1014,11 +999,6 @@
 			package = 5384D5F62A81D3A100BA85A1 /* XCRemoteSwiftPackageReference "usearch" */;
 			productName = USearch;
 		};
-		5384D5FA2A81D3D000BA85A1 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5384D5F92A81D3D000BA85A1 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
-			productName = GRDB;
-		};
 		5384D6042A81DE0B00BA85A1 /* GPTEncoder */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5384D6032A81DE0B00BA85A1 /* XCRemoteSwiftPackageReference "GPTEncoder" */;
@@ -1028,16 +1008,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5384D6162A82F72C00BA85A1 /* XCRemoteSwiftPackageReference "NanoID" */;
 			productName = NanoID;
-		};
-		5384D61A2A82F74A00BA85A1 /* MarkdownUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5384D6192A82F74A00BA85A1 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
-			productName = MarkdownUI;
-		};
-		5384D61D2A82F77A00BA85A1 /* Splash */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5384D61C2A82F77A00BA85A1 /* XCRemoteSwiftPackageReference "Splash" */;
-			productName = Splash;
 		};
 		5384D6292A89689C00BA85A1 /* Blackbird */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1074,10 +1044,10 @@
 			package = 5384D6502A9567E200BA85A1 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
 		};
-		53AE73D22B258DB7001B6A15 /* PagerTabStripView */ = {
+		53FF5D002B33813500D7CD88 /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 53AE73D12B258DB7001B6A15 /* XCRemoteSwiftPackageReference "PagerTabStripView" */;
-			productName = PagerTabStripView;
+			package = 53FF5CFF2B33813500D7CD88 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

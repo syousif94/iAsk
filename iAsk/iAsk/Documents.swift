@@ -275,17 +275,22 @@ func getPDFText(url: URL) -> NSMutableAttributedString? {
 /// handles getting the text from any url
 func extractText(url: URL, dataType: DataType? = nil) -> String? {
     
-    print("extracting text for url", url.absoluteString)
+    print("extracting text for url", url.absoluteString, dataType)
     
 //    guard let path = url.isFileURL ? url : getDownloadURL(for: url) else {
 //        return nil
 //    }
     
-    let dataType = url.dataType
-//    
+    let urlDataType = url.dataType
+//
 //    print("loading from local path", url.absoluteString, path, dataType)
     
-    if dataType == .doc, let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
+    if urlDataType == .photo {
+        let structure = try? getTextFromImage(from: url)
+        let text = structure?.orderedText
+        print("image text", text)
+        return text
+    } else if let fileType = FileType(rawValue: url.pathExtension.lowercased()) {
         // FIXME: extract the text from image based pdfs
         if fileType == .pdf {
             return getPDFText(url: url)?.string
@@ -310,8 +315,13 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
         do {
             let contents = try String(contentsOf: url, encoding: .utf8)
             
+            print("reading file type", fileType)
+            
             if fileType == .html, dataType == .url {
-                return extractText(html: contents)
+                print("extracting html")
+                let html = extractText(html: contents)
+                print("html preview", html?.prefix(200))
+                return html
             }
             
             return contents
@@ -319,12 +329,6 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
             print("Error reading file: \(error.localizedDescription)")
             return nil
         }
-    }
-    else if dataType == .photo {
-        let structure = try? getTextFromImage(from: url)
-        let text = structure?.orderedText
-        print("image text", text)
-        return text
     }
     
     return nil
@@ -424,7 +428,7 @@ func searchIndex(url: URL, queryEmbedding: EmbeddingsResult.Embedding) async -> 
 
 func indexText(attachment: Attachment) async throws {
     
-    guard let url = attachment.url, let text = extractText(url: url, dataType: attachment.dataRecord.dataType) else {
+    guard let url = attachment.url, let text = attachment.readFile() else {
         return
     }
     
@@ -444,8 +448,6 @@ func indexText(attachment: Attachment) async throws {
     }
 
     let now = Date()
-    
-    let dataId = attachment.dataRecord.path
     
     let embeddingId = url.hash
     
@@ -587,11 +589,11 @@ func summarize(_ text: String, onToken: @escaping (_ token: String) -> Void) asy
 }
 
 func getRequiredFiles(chatModel: ChatViewModel) async -> [URL]? {
-    let attachments = chatModel.latestAttachments.filter { attachment in
+    let attachments = await chatModel.latestAttachments.filter { attachment in
         return attachment.hasText
     }
     
-    let chatMessages = chatModel.latestAiMessages
+    let chatMessages = await chatModel.latestAiMessages
     
     if !attachments.isEmpty {
         
@@ -659,7 +661,7 @@ func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
         if let text = extractText(url: url) {
             let encoded = encoder.encode(text: text)
             let textURL = (url.isFileURL ? url : getDownloadURL(for: url))!.lastPathComponent
-            print(textURL)
+            print("read url", url, textURL, "estimated tokens", encoded.count)
             if encoded.count < 10000 {
                 totalEstimatedTokens += encoded.count
                 loaded.insert(url)
@@ -696,7 +698,7 @@ func readFiles(urls: [URL], getTerms: () async -> [String]) async -> String? {
 
 func getTextForChat(chatModel: ChatViewModel) async -> String? {
     
-    let attachments = chatModel.latestAttachments.filter { attachment in
+    let attachments = await chatModel.latestAttachments.filter { attachment in
         return attachment.hasText
     }
     
@@ -714,7 +716,7 @@ func getTextForChat(chatModel: ChatViewModel) async -> String? {
 }
 
 func getTerms(for chatModel: ChatViewModel) async -> [String] {
-    let chatMessages = chatModel.latestAiMessages
+    let chatMessages = await chatModel.latestAiMessages
     let excludingSystem = chatMessages.dropFirst()
     let chatHistory = excludingSystem.map { "\($0.role): \($0.content ?? "")" }.joined(separator: "\n")
     print("chat history", chatHistory)

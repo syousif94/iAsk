@@ -14,6 +14,7 @@ import MobileCoreServices
 import NanoID
 
 let scrollToPageNotification = NotificationPublisher<(page: Int, animated: Bool)>()
+let showIntroNotification = NotificationPublisher<Bool>()
 
 class ViewController: UIViewController {
     
@@ -48,6 +49,11 @@ class ViewController: UIViewController {
         return UIHostingController(rootView: view)
     }()
     
+    lazy var introViewController: UIHostingController = {
+        let view = SubscriptionView(chat: currentChat)
+        return UIHostingController(rootView: view)
+    }()
+    
     lazy var documentPicker: DocumentPickerPresenter =  {
         DocumentPickerPresenter(parentViewController: self)
     }()
@@ -72,6 +78,14 @@ class ViewController: UIViewController {
         view.addSubview(Browser.shared.view)
         
         view.addSubview(scrollView)
+        
+        if (!currentChat.introShown) {
+            addChild(introViewController)
+            
+            view.addSubview(introViewController.view)
+            
+            introViewController.didMove(toParent: self)
+        }
         
         scrollView.delegate = self
         
@@ -127,10 +141,25 @@ class ViewController: UIViewController {
         
         setupShowPhotoPickerListener()
         
+        setupIntroViewedListener()
+        
         let dropInteraction = UIDropInteraction(delegate: self)
         view.addInteraction(dropInteraction)
         
         updateColors()
+    }
+    
+    func setupIntroViewedListener() {
+        let cancel = showIntroNotification.publisher.sink { [weak self] value in
+            if !value {
+                UIView.animate(withDuration: 0.2) {
+                    self?.introViewController.view.alpha = 0
+                    self?.introViewController.view.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+                }
+            }
+        }
+        
+        cancel.store(in: &cancellables)
     }
     
     func setupShowCameraListener() {
@@ -181,14 +210,22 @@ class ViewController: UIViewController {
         cancel.store(in: &cancellables)
     }
     
+    var isShowingBrowser = false
+    
     func setupShowWebListener() {
         let cancel = showWebNotification.publisher.sink { [weak self] value in
+            guard let self = self else {
+                return
+            }
+            
+            self.isShowingBrowser = value
+            
             print("show web: \(value)")
             
-            let transform = CGAffineTransform(translationX: 0, y: value ? UIScreen.main.bounds.height : 0)
+            let transform = CGAffineTransform(translationX: 0, y: value ? self.view.frame.height : 0)
             
             UIView.animate(withDuration: 0.2) {
-                self?.scrollView.transform = transform
+                self.scrollView.transform = transform
             }
             
         }
@@ -205,10 +242,12 @@ class ViewController: UIViewController {
             
             print("scroll to page: \(value)")
             
+            currentPage = value.page
+            
             DispatchQueue.main.async {
                 self.scrollView.setContentOffset(.init(x: CGFloat(value.page) * self.scrollView.frame.width, y: 0), animated: value.animated)
+                self.cameraModel.isActive = self.currentPage == 2
             }
-            
         }
         
         cancel.store(in: &cancellables)
@@ -224,6 +263,7 @@ class ViewController: UIViewController {
                     self?.currentChat.messages = messages
                     self?.currentChat.transcript = ""
                     self?.scrollView.setContentOffset(.init(x: self?.view.frame.width ?? 0, y: 0), animated: true)
+                    self?.currentPage = 1
                     self?.currentChat.scrollProxy?.scrollTo("top", anchor: .top)
                 }
             }
@@ -267,6 +307,8 @@ class ViewController: UIViewController {
             pageCount = 2
         }
         
+        introViewController.view.pin.all()
+        
         chatViewController.view.pin.all()
         
         historyViewController.view.pin.all()
@@ -287,6 +329,11 @@ class ViewController: UIViewController {
         let shouldChangeChatWideness = isWide != currentChat.isWide
         if shouldChangeChatWideness {
             currentChat.isWide = isWide
+        }
+        
+        if self.isShowingBrowser {
+            let transform = CGAffineTransform(translationX: 0, y: self.view.frame.height)
+            self.scrollView.transform = transform
         }
         
     }
@@ -368,10 +415,20 @@ class ViewController: UIViewController {
 }
 
 extension ViewController: UIScrollViewDelegate {
+    func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        let pageWidth = scrollView.frame.size.width
+        let upcomingPage = Int(ceil(targetContentOffset.pointee.x / pageWidth))
+        if !cameraModel.isActive, upcomingPage == 2 {
+            self.cameraModel.isActive = true
+        }
+        else if cameraModel.isActive, upcomingPage != 2 {
+            self.cameraModel.isActive = false
+        }
+    }
+    
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         let pageWidth = scrollView.frame.size.width
         currentPage = Int(ceil(scrollView.contentOffset.x / pageWidth))
-        cameraModel.isActive = currentPage == 2
     }
 }
 

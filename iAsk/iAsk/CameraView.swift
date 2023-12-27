@@ -59,15 +59,15 @@ struct CameraView: View {
         VStack {
             Spacer()
             ZStack {
-                if camera.currentImage != nil {
-                    HStack {
-                        Spacer()
-                        backButton
-                        Spacer()
-                        clearButton
-                        Spacer()
-                    }
-                }
+//                if camera.currentImage != nil {
+//                    HStack {
+//                        Spacer()
+//                        backButton
+//                        Spacer()
+//                        clearButton
+//                        Spacer()
+//                    }
+//                }
                 HStack {
                     Spacer()
                     CameraButton()
@@ -82,20 +82,7 @@ struct CameraView: View {
         ZStack {
             CameraPreviewView(camera: camera)
                 .background(Color.black)
-                .onChange(of: camera.isActive) { oldValue, newValue in
-                    if newValue {
-                        camera.startCamera()
-                        withAnimation(.linear(duration: 0.15)) {
-                            blurAmount = 0
-                        }
-                    }
-                    else {
-                        camera.stopCamera()
-                        withAnimation(.linear(duration: 0.15)) {
-                            blurAmount = 1
-                        }
-                    }
-                }
+                
             VisualEffectView(effect: UIBlurEffect(style: .dark))
                 .opacity(blurAmount)
             
@@ -107,6 +94,22 @@ struct CameraView: View {
         .background(Color.black)
         .ignoresSafeArea()
         .environmentObject(camera)
+        .onChange(of: camera.isActive) { oldValue, newValue in
+            if newValue {
+                camera.startCamera()
+                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
+                    withAnimation(.linear(duration: 0.15)) {
+                        blurAmount = 0
+                    }
+                }
+            }
+            else {
+                camera.stopCamera()
+                withAnimation(.linear(duration: 0.15)) {
+                    blurAmount = 1
+                }
+            }
+        }
     }
 }
 

@@ -22,12 +22,21 @@ struct AddButton<Content: View>: View {
         self.label = label()
     }
     
-    
-    
     var bgColor: Color {
         return colorScheme == .dark ?
             Color(red: 1, green: 1, blue: 1, opacity: 0.1) :
             Color(red: 0, green: 0, blue: 0, opacity: 0.05)
+    }
+    
+    var isChatEmpty: Bool {
+        let isChatEmpty = chat.messages.count < 2
+        if isChatEmpty {
+            if let last = chat.messages.last {
+                print("message attachments", last.attachments)
+                return last.attachments.isEmpty
+            }
+        }
+        return isChatEmpty
     }
     
     var body: some View {
@@ -45,6 +54,7 @@ struct AddButton<Content: View>: View {
             }) {
                 Label("New Chat", systemImage: "plus.bubble")
             }
+            .disabled(isChatEmpty)
             
             Button(action: {
                 chat.menuShown = false
@@ -62,8 +72,9 @@ struct AddButton<Content: View>: View {
                 }
                 chat.menuShown = false
             }) {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label("Share Chat", systemImage: "square.and.arrow.up")
             }
+            .disabled(chat.messages.count < 2)
             
             Divider()
             
@@ -106,11 +117,11 @@ struct AddButton<Content: View>: View {
 //                                Label("Google Account", systemImage: "person.crop.circle")
 //                            }
             
-            Divider()
-            
-            Toggle(isOn: $chat.proMode) {
-                Label("Use GPT4", systemImage: "brain.head.profile")
-            }
+//            Divider()
+//            
+//            Toggle(isOn: $chat.proMode) {
+//                Label("Use GPT4", systemImage: "brain.head.profile")
+//            }
             
             
             

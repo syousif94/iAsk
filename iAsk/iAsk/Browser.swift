@@ -651,13 +651,20 @@ func extractText(html: String) -> String? {
         var html = html
         let doc = try SwiftSoup.parse(html)
         
-        if let mainContent = try doc.select("main").first() {
-            if let h = try? mainContent.outerHtml() {
+        if let mainContent = try doc.select("main").first(),
+           let h = try? mainContent.outerHtml() {
+            print("found main")
                 html = h
-            }
+        }
+        else if let body = doc.body(), let h = try? body.outerHtml() {
+            print("found body")
+            html = h
+        }
+        else {
+            print("did not find body or main")
         }
         
-        let whitelist = try Whitelist.simpleText()
+        let whitelist = try Whitelist.basic()
         let safe = try SwiftSoup.clean(html, whitelist)
         return safe
     } catch Exception.Error(_, let message) {

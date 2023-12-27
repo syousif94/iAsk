@@ -10,6 +10,7 @@ import Charts
 import SwiftDate
 import Combine
 import OpenAI
+import StoreKit
 
 class SettingsViewModel: ObservableObject {
     
@@ -56,7 +57,7 @@ class SettingsViewModel: ObservableObject {
         
         var stats: [Stats] = []
         
-        for (index, questions) in [gpt4questions, gpt35questions].enumerated() {
+        for (index, questions) in [gpt4questions].enumerated() {
             let groups = questions?.group(by: { record in
                 return record.createdAt.in(region: .current).toFormat("M/d")
             })
@@ -83,7 +84,7 @@ class SettingsViewModel: ObservableObject {
         
         enum Model: String, Plottable {
             case gpt3 = "GPT-3.5"
-            case gpt4 = "GPT-4"
+            case gpt4 = "Total"
         }
     }
     
@@ -93,7 +94,12 @@ struct SettingsView: View {
     
     @EnvironmentObject var chat: ChatViewModel
     
-    @StateObject var model = SettingsViewModel()
+    @State var purchasedProduct: Product?
+    
+    var questionCount: Int {
+        return chat.settings.gpt35Questions + chat.settings.gpt4Questions
+        
+    }
     
     var formView: some View {
         Form {
@@ -101,8 +107,11 @@ struct SettingsView: View {
                 VStack(alignment: .leading) {
                     Text("Questions Asked")
                         .font(.headline)
+                    
+                    
+                    
                     Chart {
-                        ForEach(model.stats, id: \.date) { stat in
+                        ForEach(chat.settings.stats, id: \.date) { stat in
                             BarMark(
                                 x: .value("Date", stat.date),
                                 y: .value("Questions", stat.questions)
@@ -111,42 +120,74 @@ struct SettingsView: View {
                         }
                     }
                     .chartForegroundStyleScale([
-                        SettingsViewModel.Stats.Model.gpt3.rawValue: .green,
-                        SettingsViewModel.Stats.Model.gpt4.rawValue: .orange
+//                        SettingsViewModel.Stats.Model.gpt3.rawValue: .green,
+                        SettingsViewModel.Stats.Model.gpt4.rawValue: .green
                     ])
                     .padding(.vertical, 8)
+//                    HStack {
+//                        Text("GPT-3.5")
+//                        Spacer()
+//                        Text("\(chat.settings.gpt35Questions)")
+//                            .foregroundStyle(.secondary)
+//                        
+//                    }
+//                    .padding(.top, 8)
                     HStack {
-                        Text("GPT-3.5")
+                        Text("Last 30 Days")
                         Spacer()
-                        Text("\(model.gpt35Questions)")
-                            .foregroundStyle(.secondary)
-                        
-                    }
-                    .padding(.top, 8)
-                    HStack {
-                        Text("GPT-4")
-                        Spacer()
-                        Text("\(model.gpt4Questions)")
+                        Text("\(chat.settings.gpt4Questions)")
                             .foregroundStyle(.secondary)
                         
                     }
                     .padding(.top, 4)
                     
+                    
+                    
                 }
                 .padding(.vertical)
             }
             Section(header: Text("Subscription Settings")) {
-                HStack {
-                    Text("Current Subscription")
-                    Spacer()
-                    Text("None")
-                        .foregroundStyle(.secondary)
-                    
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Current Subscription")
+                        Spacer()
+                        Text(purchasedProduct?.displayPrice ?? "None")
+                            .foregroundStyle(.secondary)
+                        
+                    }
+                    if purchasedProduct == nil {
+                        Text("You've made \(questionCount) requests this month! Please subscribe, just $4.99/mo")
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .padding(.top, 8)
+                    }
                 }
-                Button("Subscribe") {}
                 
-                Button("Restore purchase") {}
+                if purchasedProduct == nil {
+                    Button("Subscribe") {
+                        Task {
+                            try? await chat.store.purchase(chat.store.subscriptions.first!)
+                        }
+                    }
+                    
+                    Button("Restore purchase") {
+                        Task {
+                            await chat.store.updateCustomerProductStatus()
+                        }
+                    }
+                }
+                else {
+                    Button("Manage") {
+                        DispatchQueue.main.async {
+                            UIApplication.shared.open(URL(string: "https://apps.apple.com/account/subscriptions")!, options: [:], completionHandler: nil)
+                        }
+                    }
+                }
             }
+            .onReceive(chat.store.$purchasedSubscriptions, perform: { subs in
+                purchasedProduct = subs.first
+            })
             
             Section(header: Text("Chat Settings")) {
                 Toggle(isOn: $chat.listenOnLaunch) {
@@ -158,21 +199,30 @@ struct SettingsView: View {
                         .padding(.top, 1)
                 }
                 
-                Toggle(isOn: $chat.proMode) {
-                    Text("Use GPT-4")
-                        .font(.headline)
-                        .padding(.top, 2)
-                    Text("GPT-4 is much better at making decisions than the default model. A pro subscription is required for unlimited usage.")
-                        .font(.caption)
-                        .padding(.top, 1)
-                }
-                .tint(.orange)
+//                Toggle(isOn: $chat.proMode) {
+//                    Text("Use GPT-4")
+//                        .font(.headline)
+//                        .padding(.top, 2)
+//                    Text("GPT-4 is much better at making decisions than the default model. A pro subscription is required for unlimited usage.")
+//                        .font(.caption)
+//                        .padding(.top, 1)
+//                }
+//                .tint(.orange)
                 
                 Toggle(isOn: $chat.speakAnswer) {
                     Text("Speak Answers")
                         .font(.headline)
                         .padding(.top, 2)
                     Text("Use Apple's built in text to speech to read answers aloud.")
+                        .font(.caption)
+                        .padding(.top, 1)
+                }
+                
+                Toggle(isOn: $chat.showTips) {
+                    Text("Show Tips")
+                        .font(.headline)
+                        .padding(.top, 2)
+                    Text("Turn off to hide tips.")
                         .font(.caption)
                         .padding(.top, 1)
                 }

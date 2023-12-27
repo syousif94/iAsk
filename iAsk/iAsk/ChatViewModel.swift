@@ -15,11 +15,13 @@ import UIKit
 import NanoID
 import Blackbird
 import Accelerate
+import GPTEncoder
 
 
 let selectChatNotification = NotificationPublisher<ChatRecord>()
 let stopListeningNotification = NotificationPublisher<Void>()
 
+@MainActor
 class ChatViewModel: ObservableObject {
     
     var currentlyDragging: URL?
@@ -42,7 +44,11 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    @AppStorage("proMode") var proMode: Bool = false
+    @AppStorage("showTips") var showTips = true
+    
+    @Published var introShown = false
+    
+    @AppStorage("proMode") var proMode = true
     
     var model: Model {
         if proMode {
@@ -83,6 +89,8 @@ class ChatViewModel: ObservableObject {
     @Published var menuShown: Bool = false
     
     @Published var store = StoreViewModel()
+    
+    @Published var settings = SettingsViewModel()
     
     /// the volume of the user's speech
     @Published var decibles: CGFloat = -160
@@ -126,7 +134,14 @@ class ChatViewModel: ObservableObject {
             self.chatCreated = false
             DispatchQueue.main.async {
                 self.id = uniqueID
-                self.messages = []
+                if self.messages.count > 2, let last = self.messages.last, last.record.role == .user, last.record.messageType == .data, !last.attachments.isEmpty {
+                    last.record.chatId = uniqueID
+                    self.messages = [last]
+                }
+                else {
+                    self.messages = []
+                }
+                
             }
             
         }
@@ -204,14 +219,17 @@ class ChatViewModel: ObservableObject {
         try? await chatRecord.write(to: Database.shared.db)
     }
     
-    deinit {
-        resetSpeechToText()
-    }
+//    deinit {
+//        resetSpeechToText()
+//    }
     
     func shareDialog() {
-        guard let url = Disk.cache.getPath(for: "exports/\(id).md") else {
+        let chatName = messages.first(where: { $0.record.messageType == .text })?.content.replacing(" ", with: "-") ?? id
+        
+        guard let url = Disk.cache.getPath(for: "exports/\(chatName).md") else {
             return
         }
+        
         let contentArr = messages.compactMap { $0.md }
         
         if contentArr.isEmpty {
@@ -221,14 +239,18 @@ class ChatViewModel: ObservableObject {
         let content = contentArr.joined(separator: "\n\n")
         
         try? content.write(to: url, atomically: true, encoding: .utf8)
+        
         let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         Application.keyWindow?.rootViewController?.present(av, animated: true, completion: nil)
     }
     
     func saveDialog() {
-        guard let url = Disk.cache.getPath(for: "exports/\(id).md") else {
+        let chatName = messages.first(where: { $0.record.messageType == .text })?.content.replacing(" ", with: "-") ?? id
+        
+        guard let url = Disk.cache.getPath(for: "exports/\(chatName).md") else {
             return
         }
+        
         let contentArr = messages.compactMap { $0.md }
         
         if contentArr.isEmpty {
@@ -460,6 +482,7 @@ class ChatViewModel: ObservableObject {
     
     // MARK: Call LLM
     
+    
     func callChat(at lastUserMessage: Message? = nil) async {
         
         var chatMessages: [Chat] = proMode ? [
@@ -504,6 +527,16 @@ class ChatViewModel: ObservableObject {
             user: ask cat whats up
             assistant (you): sms(name: "cat", message: "whats up")
             
+            You should call functions consecutively if you need current information. Do not make up information on current events without first calling the search function.
+            
+            Example #1:
+            user: whats the weather like?
+            assistant (you): get_location()
+            function: [{"location": "Malibu, CA" }]
+            assistant (you): search(query: "weather in Malibu, CA")
+            function: [{"html": "Example html for you to read an extract the weather conditions" }]
+            assistant (you): The weather in Malibu is... (fill this in)
+            
             Lastly, the current date is \(Date().formatted())
             """)
         ] : [
@@ -547,6 +580,16 @@ class ChatViewModel: ObservableObject {
             Example #3:
             user: ask cat whats up
             assistant (you): sms(name: "cat", message: "whats up")
+            
+            You should call functions consecutively if you need current information. Do not make up information on current events without first calling the search function.
+            
+            Example #1:
+            user: whats the weather like?
+            assistant (you): get_location()
+            function: [{"location": "Malibu, CA" }]
+            assistant (you): search(query: "weather in Malibu, CA")
+            function: [{"html": "Example html for you to read an extract the weather conditions" }]
+            assistant (you): The weather in Malibu is... (fill this in)
             
             Lastly, the current date is \(Date().formatted())
             """),
@@ -631,19 +674,35 @@ class ChatViewModel: ObservableObject {
         
         let openAI = OpenAI(apiToken: OPEN_AI_KEY)
         
-        openAI.chatsStream(query: query) { partialResult in
-            
-            if let answering = lastUserMessage?.answering, !answering {
-                return
+        let textPublisher = PassthroughSubject<String, Never>()
+        
+        var cancellables = Set<AnyCancellable>()
+        
+        let throttledPublisher = textPublisher
+            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
+        
+        throttledPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { text in
+                aiMessage.content = text
             }
+            .store(in: &cancellables)
+        
+        var answer = ""
+        
+        do {
             
-            switch partialResult {
-            case .success(let result):
+            for try await result in openAI.chatsStream(query: query) {
+                if let answering = lastUserMessage?.answering, !answering {
+                    return
+                }
+                
                 if let text = result.choices[0].delta.content {
-                    DispatchQueue.main.async {
-//                        self.sentenceSplitter.handleStreamChunk(text)
-                        aiMessage.content += text
-                    }
+                    answer += text
+                    textPublisher.send(answer)
+//                    DispatchQueue.main.async { [answer] in
+//                        aiMessage.content = answer
+//                    }
                 }
                 else if let functionCall = result.choices[0].delta.functionCall {
                     
@@ -683,443 +742,446 @@ class ChatViewModel: ObservableObject {
                         }
                     }
                 }
-            case .failure(let error):
-                print(error)
             }
-        } completion: { [aiMessage, lastUserMessage] error in
+        }
+        catch {
+            return
+        }
+        
+        if let answering = lastUserMessage?.answering, !answering {
+            return
+        }
+        
+        if let function = FunctionCall(rawValue: call.name) {
             
-            if error != nil {
-                print("answering failed", error)
-                return
-            }
+            aiMessage.record.functionCallName = call.name
+            aiMessage.record.functionCallArgs = call.arguments
             
-            if let answering = lastUserMessage?.answering, !answering {
-                return
-            }
-            
-            if let function = FunctionCall(rawValue: call.name) {
+            DispatchQueue.main.async {
+                aiMessage.functionLog += """
                 
-                aiMessage.record.functionCallName = call.name
-                aiMessage.record.functionCallArgs = call.arguments
+                ```
                 
-                DispatchQueue.main.async {
-                    aiMessage.functionLog += """
-                    
-                    ```
-                    
-                    """
-                }
+                """
+            }
 
-                switch function {
-                case .getUserLocation:
+            switch function {
+            case .getUserLocation:
+                Task { [call] in
+                    guard let location = try? await Location.shared.get() else {
+                        DispatchQueue.main.async {
+                            aiMessage.answering = false
+                            aiMessage.content = ""
+                        }
+                        return
+                    }
+                    print("getting location succeeded",location)
+                    
+                    guard let geocode = try? await Location.shared.geocode(coordinate: location.coordinate),
+                          let cityAndState = geocode.locality else {
+                        DispatchQueue.main.async {
+                            aiMessage.answering = false
+                            aiMessage.content = ""
+                        }
+                        return
+                    }
+                    
+                    print("getting geocode succeeded", cityAndState)
+                    
+                    DispatchQueue.main.async {
+                        let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: cityAndState, role: .function, messageType: .text, functionCallName: call.name)
+                        let functionMessage = Message(record: functionMessageRecord)
+                        aiMessage.content = cityAndState
+                        aiMessage.answering = false
+                        self.messages.append(functionMessage)
+                        self.endGenerating(userMessage: lastUserMessage)
+                        Task {
+                            async let saveAiMessage: () = aiMessage.save()
+                            
+                            async let saveFunctionMessage: () = functionMessage.save()
+                            
+                            await saveAiMessage
+                            await saveFunctionMessage
+                        }
+                        Task {
+                            await self.callChat()
+                        }
+                        
+                    }
+                    
+                }
+            case .convertMedia:
+                do {
+                    let args = try call.toArgs(ConvertMediaArgs.self)
                     Task { [call] in
-                        guard let location = try? await Location.shared.get() else {
-                            DispatchQueue.main.async {
-                                aiMessage.answering = false
-                                aiMessage.content = ""
-                            }
-                            return
-                        }
-                        print("getting location succeeded",location)
                         
-                        guard let geocode = try? await Location.shared.geocode(coordinate: location.coordinate),
-                              let cityAndState = geocode.locality else {
-                            DispatchQueue.main.async {
-                                aiMessage.answering = false
-                                aiMessage.content = ""
-                            }
-                            return
-                        }
+                        let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .data, functionCallName: call.name)
                         
-                        print("getting geocode succeeded", cityAndState)
+                        let functionMessage = Message(record: functionMessageRecord)
                         
                         DispatchQueue.main.async {
-                            let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: cityAndState, role: .function, messageType: .text, functionCallName: call.name)
-                            let functionMessage = Message(record: functionMessageRecord)
-                            aiMessage.content = cityAndState
+                            self.messages.append(functionMessage)
+                        }
+                        
+                        await withThrowingTaskGroup(of: Void.self) { group in
+                            for args in args.items {
+                                let config = args.toFFmpegConfig(for: self.latestAttachments)
+                                if let config = config {
+                                    DispatchQueue.main.async {
+                                        aiMessage.functionLog += """
+                                        
+                                        ```
+                                        ffmpeg \(config.command)
+                                        ```
+                                        
+                                        """
+                                    }
+                                }
+                                group.addTask {
+                                    let outputURL = try await convertFile(config: config)
+                                    let _ = await functionMessage.attach(url: outputURL)
+                                    DispatchQueue.main.async {
+                                        functionMessage.content += "\(outputURL.absoluteString)\n"
+                                    }
+                                }
+                                
+                            }
+                        }
+                            
+                        DispatchQueue.main.async {
+                            aiMessage.functionLog += """
+                            Conversion Complete
+                            """
+                            aiMessage.answering = false
+//                                    self.messages.append(functionMessage)
+                            self.endGenerating(userMessage: lastUserMessage)
+                            Task {
+                                async let saveAiMessage: () = aiMessage.save()
+                                async let saveFunctionMessage: () = functionMessage.save()
+                                await saveAiMessage
+                                await saveFunctionMessage
+                            }
+                        }
+                        
+                        
+                    }
+                } catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .search:
+                do {
+                    let args = try call.toArgs(SearchArgs.self)
+                    Task {
+                        let results = await Browser.shared.search(query: args.query)
+
+                        DispatchQueue.main.async {
+                            aiMessage.functionLog += "Obtained \(results.links.count) results"
+                        }
+                        
+                        if let firstLink = results.links.first {
+                            DispatchQueue.main.async {
+                                aiMessage.content = "Loading \(firstLink.absoluteString)"
+                                aiMessage.functionLog += "\n\(aiMessage.content)"
+                            }
+                            
+                            let html = await Browser.shared.fetchHTML(from: firstLink)
+                            
+                            if let html = html {
+                                let text = extractText(html: html)
+                                
+                                print("sanitized html", text)
+                                
+                                let functionOutput = """
+                                    {
+                                        "url":"\(firstLink.absoluteString)",
+                                        "html":"\(text ?? "")"
+                                    }
+                                """
+                                
+                                let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .text, functionCallName: call.name)
+                                
+                                let functionMessage = Message(record: functionMessageRecord)
+                                
+                                DispatchQueue.main.async {
+                                    self.messages.append(functionMessage)
+//                                        self.endGenerating(userMessage: lastUserMessage)
+                                    aiMessage.answering = false
+                                    Task {
+                                        async let saveAi = aiMessage.save()
+                                        async let saveFn = functionMessage.save()
+                                        async let callChat = self.callChat()
+                                        await saveAi
+                                        await saveFn
+                                        await callChat
+                                    }
+                                }
+                                
+                                
+                            }
+                            
+                        }
+                    }
+                } catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .searchContacts:
+                do {
+                    let args = try call.toArgs(SearchContactsArgs.self)
+                    print(args)
+                    DispatchQueue.main.async {
+                        
+                        aiMessage.functionLog += "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
+
+                        Task {
+                            let choices = await ContactManager.shared.getChoices(query: args.name, contactType: args.contactType)
+                            print(choices)
+                            if choices.isEmpty {
+                                
+                            }
+//                                else if choices.count == 1 {
+//
+//                                }
+                            else {
+                                let choicesMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .assistant, messageType: .select)
+                                let choiceMessage = Message(record: choicesMessageRecord)
+                                choiceMessage.choices = .contacts(choices: choices)
+                                DispatchQueue.main.async {
+                                    self.messages.append(choiceMessage)
+                                }
+                            }
+                            self.endGenerating(userMessage: lastUserMessage)
+                        }
+                        
+                        Task {
+                            await aiMessage.save()
+                        }
+                    }
+//                        Task {
+//                            if let json = try? await Google.shared.searchContacts(query: args.name) {
+//                                print(json)
+//                            }
+//                        }
+                } catch {
+                    print("Failed to decode JSON: \(error)")
+                }
+            case .searchDocuments:
+                do {
+                    let args = try call.toArgs(SearchDocumentsArgs.self)
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                }
+            case .python:
+                do {
+                    let args = try call.toArgs(PythonArgs.self)
+                    DispatchQueue.main.async {
+                        aiMessage.content += """
+                        
+                        ```python
+                        \(args.script)
+                        ```
+                        
+                        """
+                    }
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                }
+            case .summarizeDocuments:
+                do {
+                    let args = try call.toArgs(SummarizeDocumentsArgs.self)
+                    let urls = args.files.compactMap { filePath -> URL? in
+                        if let attachment = self.latestAttachments.first(where: { a in
+                            a.dataRecord.name == filePath && a.hasText
+                        }) {
+                            return attachment.url
+                        }
+                        return URL(string: filePath)
+                    }
+                    guard urls.count > 0 else {
+                        print("No valid files to summarize")
+                        return
+                    }
+                    Task { [lastUserMessage] in
+                        for url in urls {
+                            let text = extractText(url: url)
+                            if let text = text {
+                                DispatchQueue.main.async {
+                                    aiMessage.content += "\n\n"
+                                }
+                                let summary = await summarize(text) { token in
+                                    DispatchQueue.main.async {
+                                        aiMessage.content += token
+                                    }
+                                }
+                                
+                            }
+                        }
+                        DispatchQueue.main.async {
+                            aiMessage.answering = false
+                        }
+                        self.endGenerating(userMessage: lastUserMessage)
+                        async let saveAiMessage: () = aiMessage.save()
+                        await saveAiMessage
+                        
+                    }
+                    
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                }
+            case .writeFiles:
+                do {
+                    let args = try call.toArgs(WriteFilesArgs.self)
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .sms:
+                do {
+                    let args = try call.toArgs(SMSArgs.self)
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .call:
+                do {
+                    let args = try call.toArgs(CallArgs.self)
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .readFiles:
+                do {
+                    let args = try call.toArgs(ReadFilesArgs.self)
+                    let files = args.files
+                    
+                    let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .text, functionCallName: call.name)
+                    
+                    let functionMessage = Message(record: functionMessageRecord)
+                    
+                    Task {
+                        
+                        let texts = files.compactMap { filePath -> String? in
+                            
+                            guard let attachment = self.latestAttachments.first(where: { a in
+
+                                if a.dataRecord.dataType == .url, let url = a.url, let path = getDownloadURL(for: url) {
+                                    let name = path.lastPathComponent
+                                    let isTheOne = name == filePath
+
+                                    return isTheOne
+                                }
+
+                                let filenameMatch = a.dataRecord.name == filePath && a.hasText
+                                if filenameMatch {
+                                    return true
+                                }
+
+                                return false
+                            }) else {
+                                return nil
+                            }
+                            
+                            let encoder = GPTEncoder()
+                            
+                            if let text = attachment.readFile() {
+                                
+                                let encoded = encoder.encode(text: text)
+                                
+                                print("read file", filePath, "estimated tokens", encoded.count)
+                                
+                                return """
+                                file_path:
+                                \(filePath)
+                                text:
+                                \(text)
+                                """
+                            }
+                            
+                            return nil
+                        }
+                        
+                        functionMessage.content = texts.joined(separator: "\n")
+                        
+                        DispatchQueue.main.async {
                             aiMessage.answering = false
                             self.messages.append(functionMessage)
-                            self.endGenerating(userMessage: lastUserMessage)
+                            
                             Task {
                                 async let saveAiMessage: () = aiMessage.save()
                                 
                                 async let saveFunctionMessage: () = functionMessage.save()
                                 
                                 await saveAiMessage
+                                
                                 await saveFunctionMessage
-                            }
-                            Task {
+                                
+                                print("calling chat again")
+                                
                                 await self.callChat()
                             }
-                            
                         }
+                    }
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
+                }
+            case .createCalendarEvent:
+                do {
+                    let args = try call.toArgs(CreateCalendarEventArgs.self)
+                    
+                    if let event = Events.shared.createEvent(args: args) {
+                        
+                        print("event generated", event)
+                        
                         
                     }
-                case .convertMedia:
-                    do {
-                        let args = try call.toArgs(ConvertMediaArgs.self)
-                        Task { [call] in
-                            
-                            let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .data, functionCallName: call.name)
-                            
-                            let functionMessage = Message(record: functionMessageRecord)
-                            
-                            DispatchQueue.main.async {
-                                self.messages.append(functionMessage)
-                            }
-                            
-                            await withThrowingTaskGroup(of: Void.self) { group in
-                                for args in args.items {
-                                    let config = args.toFFmpegConfig(for: self.latestAttachments)
-                                    if let config = config {
-                                        DispatchQueue.main.async {
-                                            aiMessage.functionLog += """
-                                            
-                                            ```
-                                            ffmpeg \(config.command)
-                                            ```
-                                            
-                                            """
-                                        }
-                                    }
-                                    group.addTask {
-                                        let outputURL = try await convertFile(config: config)
-                                        let _ = await functionMessage.attach(url: outputURL)
-                                        DispatchQueue.main.async {
-                                            functionMessage.content += "\(outputURL.absoluteString)\n"
-                                        }
-                                    }
-                                    
-                                }
-                            }
-                                
-                            DispatchQueue.main.async {
-                                aiMessage.functionLog += """
-                                Conversion Complete
-                                """
-                                aiMessage.answering = false
-//                                    self.messages.append(functionMessage)
-                                self.endGenerating(userMessage: lastUserMessage)
-                                Task {
-                                    async let saveAiMessage: () = aiMessage.save()
-                                    async let saveFunctionMessage: () = functionMessage.save()
-                                    await saveAiMessage
-                                    await saveFunctionMessage
-                                }
-                            }
-                            
-                            
-                        }
-                    } catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .search:
-                    do {
-                        let args = try call.toArgs(SearchArgs.self)
+                    DispatchQueue.main.async {
+                        aiMessage.answering = false
                         Task {
-                            let results = await Browser.shared.search(query: args.query)
-
-                            DispatchQueue.main.async {
-                                aiMessage.functionLog += "Obtained \(results.links.count) results"
-                            }
-                            
-                            if let firstLink = results.links.first {
-                                DispatchQueue.main.async {
-                                    aiMessage.content = "Loading \(firstLink.absoluteString)"
-                                    aiMessage.functionLog += "\n\(aiMessage.content)"
-                                }
-                                
-                                let html = await Browser.shared.fetchHTML(from: firstLink)
-                                
-                                if let html = html {
-                                    let text = extractText(html: html)
-                                    
-                                    print("sanitized html", text)
-                                    
-                                    let functionOutput = """
-                                        {
-                                            "url":"\(firstLink.absoluteString)",
-                                            "html":"\(text ?? "")"
-                                        }
-                                    """
-                                    
-                                    let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .text, functionCallName: call.name)
-                                    
-                                    let functionMessage = Message(record: functionMessageRecord)
-                                    
-                                    DispatchQueue.main.async {
-                                        self.messages.append(functionMessage)
-//                                        self.endGenerating(userMessage: lastUserMessage)
-                                        aiMessage.answering = false
-                                        Task {
-                                            async let saveAi = aiMessage.save()
-                                            async let saveFn = functionMessage.save()
-                                            async let callChat = self.callChat()
-                                            await saveAi
-                                            await saveFn
-                                            await callChat
-                                        }
-                                    }
-                                    
-                                    
-                                }
-                                
-                            }
-                        }
-                    } catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .searchContacts:
-                    do {
-                        let args = try call.toArgs(SearchContactsArgs.self)
-                        print(args)
-                        DispatchQueue.main.async {
-                            
-                            aiMessage.functionLog += "Searching contacts: \(args.name) (\(args.contactType.rawValue))"
-
-                            Task {
-                                let choices = await ContactManager.shared.getChoices(query: args.name, contactType: args.contactType)
-                                print(choices)
-                                if choices.isEmpty {
-                                    
-                                }
-//                                else if choices.count == 1 {
-//                                    
-//                                }
-                                else {
-                                    let choicesMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .assistant, messageType: .select)
-                                    let choiceMessage = Message(record: choicesMessageRecord)
-                                    choiceMessage.choices = .contacts(choices: choices)
-                                    DispatchQueue.main.async {
-                                        self.messages.append(choiceMessage)
-                                    }
-                                }
-                                self.endGenerating(userMessage: lastUserMessage)
-                            }
-                            
-                            Task {
-                                await aiMessage.save()
-                            }
-                        }
-//                        Task {
-//                            if let json = try? await Google.shared.searchContacts(query: args.name) {
-//                                print(json)
-//                            }
-//                        }
-                    } catch {
-                        print("Failed to decode JSON: \(error)")
-                    }
-                case .searchDocuments:
-                    do {
-                        let args = try call.toArgs(SearchDocumentsArgs.self)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                    }
-                case .python:
-                    do {
-                        let args = try call.toArgs(PythonArgs.self)
-                        DispatchQueue.main.async {
-                            aiMessage.content += """
-                            
-                            ```python
-                            \(args.script)
-                            ```
-                            
-                            """
-                        }
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                    }
-                case .summarizeDocuments:
-                    do {
-                        let args = try call.toArgs(SummarizeDocumentsArgs.self)
-                        let urls = args.files.compactMap { filePath -> URL? in
-                            if let attachment = self.latestAttachments.first(where: { a in
-                                a.dataRecord.name == filePath && a.hasText
-                            }) {
-                                return attachment.url
-                            }
-                            return URL(string: filePath)
-                        }
-                        guard urls.count > 0 else {
-                            print("No valid files to summarize")
-                            return
-                        }
-                        Task {
-                            for url in urls {
-                                let text = extractText(url: url)
-                                if let text = text {
-                                    DispatchQueue.main.async {
-                                        aiMessage.content += "\n\n"
-                                    }
-                                    let summary = await summarize(text) { token in
-                                        DispatchQueue.main.async {
-                                            aiMessage.content += token
-                                        }
-                                    }
-                                    
-                                }
-                            }
-                            DispatchQueue.main.async {
-                                aiMessage.answering = false
-                            }
-                            self.endGenerating(userMessage: lastUserMessage)
                             async let saveAiMessage: () = aiMessage.save()
+                            
                             await saveAiMessage
-                            
-                        }
-                        
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                    }
-                case .writeFiles:
-                    do {
-                        let args = try call.toArgs(WriteFilesArgs.self)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .sms:
-                    do {
-                        let args = try call.toArgs(SMSArgs.self)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .call:
-                    do {
-                        let args = try call.toArgs(CallArgs.self)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .readFiles:
-                    do {
-                        let args = try call.toArgs(ReadFilesArgs.self)
-                        let files = args.files
-                        
-                        let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .function, messageType: .text, functionCallName: call.name)
-                        
-                        let functionMessage = Message(record: functionMessageRecord)
-                        
-                        Task {
-                            
-                            let texts = files.compactMap { filePath -> String? in
-                                
-                                guard let attachment = self.latestAttachments.first(where: { a in
-
-                                    if a.dataRecord.dataType == .url, let url = a.url, let path = getDownloadURL(for: url) {
-                                        let name = path.lastPathComponent
-                                        let isTheOne = name == filePath
-
-                                        return isTheOne
-                                    }
-
-                                    let filenameMatch = a.dataRecord.name == filePath && a.hasText
-                                    if filenameMatch {
-                                        return true
-                                    }
-
-                                    return false
-                                }) else {
-                                    return nil
-                                }
-                                
-                                if let text = attachment.readFile() {
-                                    return """
-                                    file_path:
-                                    \(filePath)
-                                    text:
-                                    \(text)
-                                    """
-                                }
-                                
-                                return nil
-                            }
-                            
-                            functionMessage.content = texts.joined(separator: "\n")
-                            
-                            DispatchQueue.main.async {
-                                aiMessage.answering = false
-                                self.messages.append(functionMessage)
-                                
-                                Task {
-                                    async let saveAiMessage: () = aiMessage.save()
-                                    
-                                    async let saveFunctionMessage: () = functionMessage.save()
-                                    
-                                    await saveAiMessage
-                                    
-                                    await saveFunctionMessage
-                                    
-                                    print("calling chat again")
-                                    
-                                    await self.callChat()
-                                }
-                            }
                         }
                     }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .createCalendarEvent:
-                    do {
-                        let args = try call.toArgs(CreateCalendarEventArgs.self)
-                        
-                        if let event = Events.shared.createEvent(args: args) {
-                            
-                            print("event generated", event)
-                            
-                            
-                        }
-                        DispatchQueue.main.async {
-                            aiMessage.answering = false
-                            Task {
-                                async let saveAiMessage: () = aiMessage.save()
-                                
-                                await saveAiMessage
-                            }
-                        }
-                        
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
-                case .getCalendar:
-                    do {
-                        let args = try call.toArgs(GetCalendarArgs.self)
-                    }
-                    catch {
-                        print("Failed to decode JSON: \(error)")
-                        self.endGenerating(userMessage: lastUserMessage)
-                    }
+                    
+                    self.endGenerating(userMessage: lastUserMessage)
                 }
-                
-            }
-            else {
-                self.endGenerating(userMessage: lastUserMessage)
-                DispatchQueue.main.async {
-                    Task {
-                        await aiMessage.save()
-                    }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
                 }
-                
-                guard error == nil else {
-                    print(error)
-                    return
+            case .getCalendar:
+                do {
+                    let args = try call.toArgs(GetCalendarArgs.self)
+                }
+                catch {
+                    print("Failed to decode JSON: \(error)")
+                    self.endGenerating(userMessage: lastUserMessage)
                 }
             }
+            
+        }
+        else {
+            self.endGenerating(userMessage: lastUserMessage)
+            DispatchQueue.main.async { [answer] in
+                aiMessage.content = answer
+                Task {
+                    await aiMessage.save()
+                }
+            }
+            
+//            guard error == nil else {
+//                print(error)
+//                return
+//            }
         }
     }
     

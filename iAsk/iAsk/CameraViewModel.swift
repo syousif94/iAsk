@@ -26,10 +26,24 @@ class CameraViewModel: NSObject, ObservableObject {
     override init() {
         self.captureSession = AVCaptureSession()
         super.init()
+        
+        
+        
+        if let input = getInput() {
+            captureSession.beginConfiguration()
+            currentInput = input
+            captureSession.addInput(input)
+            captureSession.sessionPreset = .photo
+            captureSession.addOutput(photoOutput)
+            captureSession.commitConfiguration()
+        }
+        else {
+            return
+        }
     }
     
     private func getInput() -> AVCaptureDeviceInput? {
-        guard let cam = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+        guard let cam = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: cam) else {
             return nil
         }
@@ -38,24 +52,15 @@ class CameraViewModel: NSObject, ObservableObject {
     }
 
     func startCamera() {
-
-        if currentInput == nil {
-            if let input = getInput() {
-                currentInput = input
-                captureSession.addInput(input)
-                captureSession.addOutput(photoOutput)
-            }
-            else {
-                return
-            }
+        DispatchQueue.global().async {
+            self.captureSession.startRunning()
         }
-        
-        captureSession.startRunning()
-
     }
 
     func stopCamera() {
-        captureSession.stopRunning()
+        DispatchQueue.global().async {
+            self.captureSession.stopRunning()
+        }
     }
     
     func takePhoto() {

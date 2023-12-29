@@ -376,6 +376,46 @@ struct ChatView: View {
                 ? Color(hex: "#2b3136")
                 : Color(hex: "#ffffff")
             )
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                if chat.isRecording {
+                    withAnimation {
+                        chat.stopTranscribing()
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                if chat.isRecording {
+                    withAnimation {
+                        chat.stopTranscribing()
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                if chat.listenOnLaunch, chat.messages.count < 2, !chat.isRecording {
+                    withAnimation {
+                        chat.transcribe()
+                    }
+                }
+            }
+            .onAppear {
+                if chat.listenOnLaunch, !chat.isRecording {
+                    withAnimation {
+                        chat.transcribe()
+                    }
+                }
+            }
+            .alert(isPresented: $chat.showLimitExceededAlert) {
+                Alert(
+                    title: Text("Subscribe"),
+                    message: Text("You have exceeded the 30 day question limit. Please subscribe for unlimited usage."),
+                    primaryButton: .cancel(Text("Subscribe"), action: {
+                        Task {
+                            try? await chat.store.purchase(chat.store.subscriptions.first!)
+                        }
+                    }),
+                    secondaryButton: .default(Text("Cancel"))
+                )
+            }
             .sheet(isPresented: $chat.showSettings,  content: {
                 SettingsView()
             })
@@ -569,10 +609,10 @@ struct HighlightrCodeSyntaxHighlighter: CodeSyntaxHighlighter {
     }
     
     func highlightCode(_ code: String, language: String?) -> Text {
-        if let highlightedCode = syntaxHighlighter.highlight(code, as: language) {
+        if let lang = language, !lang.isEmpty, let highlightedCode = syntaxHighlighter.highlight(code, as: lang) {
             return Text(AttributedString(highlightedCode))
         }
-        return Text("")
+        return Text(code)
     }
 }
 
@@ -591,6 +631,7 @@ struct MessageView: View {
     @Environment(\.colorScheme) var colorScheme
 
     @EnvironmentObject var chat: ChatViewModel
+    @EnvironmentObject var alerts: AlertViewModel
     
     @State var functionType: FunctionCall?
     
@@ -607,11 +648,38 @@ struct MessageView: View {
             .markdownCodeSyntaxHighlighter(.highlightr(theme: colorScheme == .dark ? "monokai" : "xcode"))
             .markdownBlockStyle(\.table, body: { configuration in
                 configuration.label.padding(.top, 6)
+                    .contextMenu {
+                        Button("Copy Table", role: .none) {
+                            let text = configuration.content.renderMarkdown()
+                            copyToClipboard(text: text)
+                            alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
+                        }
+                    }
             })
             .markdownBlockStyle(\.paragraph, body: { configuration in
                 VStack {
                     configuration.label
                         .relativeLineSpacing(.em( isPad ? 0.25 : 0.08))
+                        .contextMenu {
+                            Button("Copy Paragraph", role: .none) {
+                                let text = configuration.content.renderPlainText()
+                                copyToClipboard(text: text)
+                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
+                            }
+                            Button("Copy Answer", role: .none) {
+                                let text = message.content
+                                copyToClipboard(text: text)
+                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
+                            }
+                            Button("Speak", role: .none) {
+                                let text = message.content
+                                chat.speakAnswer = true
+                                chat.speechQueue.enqueue(sentence: text)
+                            }
+                            Button("Share Chat", role: .none) {
+                                chat.shareDialog()
+                            }
+                        }
                 }
             })
             .markdownTextStyle(\.code) {
@@ -630,11 +698,6 @@ struct MessageView: View {
             .simultaneousGesture(TapGesture().onEnded({
                 UIApplication.shared.endEditing()
             }))
-            .contextMenu {
-                Button("Copy", role: .none) {
-
-                }
-            }
     }
     
     var logView: some View {
@@ -743,6 +806,7 @@ struct MessageView: View {
                         }
                         .padding(.horizontal)
                         .padding(.bottom)
+                        
                     }
                     if functionType == nil {
                         markdownView
@@ -1229,7 +1293,7 @@ struct MarkdownCodeView: View {
                 return provider
             }
             .contextMenu {
-                Button("Edit") {
+                Button("Select Code") {
                     
                     DispatchQueue.main.async {
                         selectedLanguage = configuration.language ?? ""
@@ -1238,7 +1302,7 @@ struct MarkdownCodeView: View {
                     }
                     
                 }
-                Button("Copy") {
+                Button("Copy Code") {
                     let selectedCode = configuration.content
                     copyToClipboard(text: selectedCode)
                     alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")

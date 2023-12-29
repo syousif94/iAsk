@@ -148,16 +148,20 @@ struct SubscriptionView: View {
                                 .scrollTargetBehavior(.viewAligned)
                                 .frame(maxWidth: maxWidth)
                                 
-                                Text("Non subscribers are limited to 15 questions a month and may bankrupt Sammy. Subscribe to get unlimited access.")
+                                Text("Subscribe to get unlimited access.\nNon subscribers are limited to 15 questions a month and may bankrupt Sammy.")
                                     .foregroundColor(.secondary)
                                     .padding(.top, 40)
+                                    .padding(.horizontal)
                                 
                                 Button(action: {
                                     Task {
                                         do {
                                             let _ = try await chat.store.purchase(chat.store.subscriptions.first!)
-                                            chat.introShown = true
-                                            showIntroNotification.send(false)
+                                            await chat.store.updateCustomerProductStatus()
+                                            if chat.store.purchasedSubscriptions.first != nil {
+                                                chat.introShown = true
+                                                showIntroNotification.send(false)
+                                            }
                                         }
                                         catch {
                                             
@@ -179,25 +183,21 @@ struct SubscriptionView: View {
                                 .buttonStyle(.borderedProminent)
                                 .padding(.top, 40)
                                 
-                                Button(action: {
-                                    chat.introShown = true
-                                    showIntroNotification.send(false)
-                                }, label: {
-                                    Text("Skip")
-                                        .padding()
-                                })
-                                .padding(.top, 20)
-                                .padding(.bottom, 20)
+
                                 
                                 Button(action: {
                                     Task {
-                                        
+                                        await chat.store.updateCustomerProductStatus()
+                                        if chat.store.purchasedSubscriptions.first != nil {
+                                            chat.introShown = true
+                                            showIntroNotification.send(false)
+                                        }
                                     }
                                 }, label: {
                                     Text("Restore Purchases")
                                         .padding()
                                 })
-                                .padding(.top, 20)
+                                .padding(.top, 60)
                                 .padding(.bottom, 20)
                                 
                             }
@@ -239,6 +239,21 @@ struct SubscriptionView: View {
                     .background(backgroundColor)
                 }
                 .ignoresSafeArea()
+            }
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        chat.introShown = true
+                        showIntroNotification.send(false)
+                    }, label: {
+                        Text("Skip")
+                            .padding(.vertical, 20)
+                            .padding(.horizontal, 32)
+                    })
+                    
+                }
+                Spacer()
             }
             VStack {
                 Spacer()

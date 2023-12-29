@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import NanoID
+import StoreKit
 
 struct Tip: Identifiable {
     let id: String
@@ -28,7 +29,13 @@ struct TipsView: View {
         chat.showTips && chat.messages.count < 2
     }
     
-    var showQuotaExceeded: Bool = true
+    @State var purchasedProduct: Product? = nil
+    
+    @State var subscriptionsLoaded = false
+    
+    var showQuotaExceeded: Bool {
+        return chat.messages.count < 2 && purchasedProduct == nil && subscriptionsLoaded
+    }
     
     @Environment(\.colorScheme) var colorScheme
     
@@ -42,8 +49,7 @@ struct TipsView: View {
         Tip(texts: Text("Press ") + Text("⌘ + o").foregroundStyle(.blue) + Text(" or drop files anywhere in this window to add them")),
         Tip(texts: Text("Click  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  for settings and more")),
         Tip(texts: Text("Scroll  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
-        Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app")),
-//        Tip(texts: Text("GPT-4 ").foregroundStyle(.orange) + Text("is much smarter and can handle 4x as much information than the default model")),
+        Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app"))
         
     ] : [
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  to import documents and manage settings")),
@@ -51,14 +57,16 @@ struct TipsView: View {
         Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "mic.fill")).foregroundStyle(.blue) + Text("  to speak your question")),
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "play.fill")).foregroundStyle(.green) + Text("  to submit your request")),
-        Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.left.2")).foregroundStyle(.blue) + Text("  to scan text with the  ") + Text(Image(systemName: "camera.fill")).foregroundStyle(.blue)),
-//        Tip(texts: Text("GPT-4 ").foregroundStyle(.orange) + Text("is much smarter and can handle 4x as much information than the standard model")),
+        Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.left.2")).foregroundStyle(.blue) + Text("  to scan text with the  ") + Text(Image(systemName: "camera.fill")).foregroundStyle(.blue))
     ]
     
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
             
+            if showQuotaExceeded {
+                QuotaView()
+            }
             
             if showTips {
                 VStack(alignment: .leading, spacing: 0) {
@@ -70,10 +78,7 @@ struct TipsView: View {
                             HStack(alignment: .center) {
                                 Spacer()
                                 Button(action: {
-                                    withAnimation {
-                                        chat.showTips = false
-                                    }
-                                    
+                                    chat.showSettings = true
                                 }) {
                                     Image(systemName: "gearshape.fill")
                                         .foregroundStyle(.white)
@@ -97,16 +102,17 @@ struct TipsView: View {
                     .scrollIndicators(.hidden)
                     .frame(height: 110)
                 }
-                
-            }
-            
-            if showQuotaExceeded {
-                QuotaView()
-                    .padding(.top)
+                .padding(.top)
             }
             
         }
         .padding(.bottom, 100)
+        .onReceive(chat.store.$purchasedSubscriptions, perform: { subs in
+            purchasedProduct = subs.first
+        })
+        .onReceive(chat.store.$subscriptionsLoaded, perform: { loaded in
+            subscriptionsLoaded = loaded
+        })
     }
 }
 
@@ -148,28 +154,24 @@ struct QuotaView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var bgColor: Color {
-        return .red
+        return .blue
 //        return colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05)
     }
     
-    var questionsThisMonth: Int {
-        return chat.settings.gpt35Questions + chat.settings.gpt4Questions
-    }
-    
     var body: some View {
-        if chat.store.purchasedSubscriptions.isEmpty && chat.store.subscriptionsLoaded {
+        HStack(spacing: 0) {
+            Spacer()
             Button(action: {
                 Task {
                     try? await chat.store.purchase(chat.store.subscriptions.first!)
                 }
             }) {
                 HStack {
-                    Text("Please subscribe to support development and hide this message!")
+                    Text("Subscribe")
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
-                        .padding(.trailing)
-                    Spacer()
+                        .padding(.horizontal)
                     HStack() {
                         Text("$4.99/mo").foregroundStyle(.white).fontWeight(.bold)
                     }
@@ -181,9 +183,8 @@ struct QuotaView: View {
             }
             .buttonStyle(.plain)
             .padding()
-            .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 12).fill(bgColor))
-            .padding(.horizontal)
+            Spacer()
         }
     }
 }

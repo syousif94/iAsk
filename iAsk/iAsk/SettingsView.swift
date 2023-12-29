@@ -84,7 +84,7 @@ class SettingsViewModel: ObservableObject {
         
         enum Model: String, Plottable {
             case gpt3 = "GPT-3.5"
-            case gpt4 = "Total"
+            case gpt4 = "Daily Total"
         }
     }
     
@@ -121,7 +121,7 @@ struct SettingsView: View {
                     }
                     .chartForegroundStyleScale([
 //                        SettingsViewModel.Stats.Model.gpt3.rawValue: .green,
-                        SettingsViewModel.Stats.Model.gpt4.rawValue: .green
+                        SettingsViewModel.Stats.Model.gpt4.rawValue: .orange
                     ])
                     .padding(.vertical, 8)
 //                    HStack {

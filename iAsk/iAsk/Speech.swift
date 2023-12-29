@@ -202,7 +202,6 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var currentWord: String
     
     override init() {
-        
         self.sentenceQueue = []
         self.currentSentence = ""
         self.currentWord = ""
@@ -211,7 +210,8 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     }
     
     func cancelSpeech() {
-        Self.speechSynthesizer.stopSpeaking(at: .word)
+        Self.speechSynthesizer.stopSpeaking(at: .immediate)
+        sentenceQueue.removeAll() // Clear the queue to prevent further speaking
     }
     
     func enqueue(sentence: String) {
@@ -222,6 +222,7 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     }
     
     private func speakNextSentence() {
+        guard !sentenceQueue.isEmpty else { return } // Ensure there is something to speak
         
         do {
             try AVAudioSession.sharedInstance().setActive(false)
@@ -231,26 +232,19 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             print(error)
         }
         
-        if let sentence = sentenceQueue.first {
-            
-            print("speaking:", sentence)
-            
-            currentSentence = sentence
-            let utterance = AVSpeechUtterance(string: sentence)
-            
-            utterance.rate = utterance.rate * 1.1
-
-            Self.speechSynthesizer.speak(utterance)
-            
-            sentenceQueue.removeFirst()
-            
-            speakNextSentence()
-        }
+        let sentence = sentenceQueue.removeFirst() // Remove the first sentence from the queue
+        print("speaking:", sentence)
+        
+        currentSentence = sentence
+        let utterance = AVSpeechUtterance(string: sentence)
+        utterance.rate = utterance.rate * 1.1
+        
+        Self.speechSynthesizer.speak(utterance)
     }
     
     // AVSpeechSynthesizerDelegate methods
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        speakNextSentence()
+        speakNextSentence() // Only call speakNextSentence here after an utterance finishes
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {

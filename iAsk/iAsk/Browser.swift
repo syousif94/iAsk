@@ -239,17 +239,20 @@ class Browser: UIViewController {
         var results = SearchResults()
         
         if let text = text {
-            results.links = extractLinks(html: text)
-            results.answerText = extractText(html: text)
+            results = extractLinks(html: text)
+//            results.answerText = extractText(html: text)
         }
         
         return results
     }
     
-    func extractLinks(html: String) -> [URL] {
+    func extractLinks(html: String) -> SearchResults {
+        
+        print("dumped html", html)
+        
         guard let doc = try? SwiftSoup.parse(html),
               let links: Elements = try? doc.select("a") else {
-            return []
+            return .init()
         }
         
         var urls: [URL] = []
@@ -272,7 +275,7 @@ class Browser: UIViewController {
             }
         }
         
-        return urls
+        return .init(links: urls, answerText: extractText(html: html))
     }
     
     func isGoodSearchURL(url: URL) -> Bool {

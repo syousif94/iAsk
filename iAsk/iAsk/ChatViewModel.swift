@@ -46,7 +46,7 @@ class ChatViewModel: ObservableObject {
     
     @AppStorage("showTips") var showTips = true
     
-    @Published var introShown = false
+    @AppStorage("introShown") var introShown = false
     
     @AppStorage("proMode") var proMode = true
     
@@ -56,6 +56,8 @@ class ChatViewModel: ObservableObject {
         }
         return .gpt3_5Turbo_1106
     }
+    
+    @Published var showLimitExceededAlert = false
     
     @Published var showSettings = false
     
@@ -71,7 +73,13 @@ class ChatViewModel: ObservableObject {
     /// whether the mic is recording a user question or not
     @Published var isRecording: Bool = false
     /// say the ai answer aloud as it is recieved
-    @AppStorage("speakAnswer") var speakAnswer: Bool = false
+    @AppStorage("speakAnswer") var speakAnswer: Bool = false {
+        didSet {
+            if !speakAnswer {
+                speechQueue.cancelSpeech()
+            }
+        }
+    }
     
     @AppStorage("listenOnLaunch") var listenOnLaunch: Bool = false
     
@@ -195,9 +203,8 @@ class ChatViewModel: ObservableObject {
             .store(in: &cancellables)
         
         // handle new sentences from the response splitter
-        // FIXME: periods in numbers and maybe commas
         sentenceSplitter.sentenceHandler = { sentence in
-            // self.speechQueue.enqueue(sentence: sentence)
+             self.speechQueue.enqueue(sentence: sentence)
         }
         
         // listen for document imports from the document picker
@@ -263,12 +270,20 @@ class ChatViewModel: ObservableObject {
     }
     
     func resetSpeechToText() {
+        
         isRecording = false
         task?.cancel()
         audioEngine?.stop()
         audioEngine = nil
         request = nil
         task = nil
+        
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to deactivate audio session. Error: \(error)")
+        }
     }
     
     private func setupDocumentImportListener() {
@@ -681,10 +696,29 @@ class ChatViewModel: ObservableObject {
         let throttledPublisher = textPublisher
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
         
+        let types: NSTextCheckingResult.CheckingType = [.address]
+       guard let detector = try? NSDataDetector(types: types.rawValue) else {
+           return
+       }
+
+        
         throttledPublisher
             .receive(on: DispatchQueue.main)
             .sink { text in
-                aiMessage.content = text
+                let mutableText = NSMutableString(string: text) // Create a mutable copy of the text
+                let matches = detector.matches(in: text, range: NSRange(location: 0, length: text.utf16.count))
+                
+                // Iterate over the matches in reverse order
+                for match in matches.reversed() {
+                    if let range = Range(match.range, in: text),
+                       let matchText = text[range].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                       let url = URL(string: "http://maps.apple.com/?q=\(matchText)") {
+                        let markdownLink = "[\(text[range])](\(url))"
+                        mutableText.replaceCharacters(in: match.range, with: markdownLink)
+                    }
+                }
+                
+                aiMessage.content = mutableText as String
             }
             .store(in: &cancellables)
         
@@ -700,6 +734,10 @@ class ChatViewModel: ObservableObject {
                 if let text = result.choices[0].delta.content {
                     answer += text
                     textPublisher.send(answer)
+                    if speakAnswer {
+                        sentenceSplitter.handleStreamChunk(text)
+                    }
+                    
 //                    DispatchQueue.main.async { [answer] in
 //                        aiMessage.content = answer
 //                    }
@@ -890,14 +928,25 @@ class ChatViewModel: ObservableObject {
                             if let html = html {
                                 let text = extractText(html: html)
                                 
-                                print("sanitized html", text)
-                                
-                                let functionOutput = """
+                                var functionOutput = """
+                                [
                                     {
                                         "url":"\(firstLink.absoluteString)",
                                         "html":"\(text ?? "")"
                                     }
                                 """
+                                
+                                if let answer = results.answerText, !answer.isEmpty {
+                                    functionOutput += """
+                                    ,
+                                    {
+                                        "url":"google results",
+                                        "html":"\(answer)"
+                                    }
+                                    """
+                                }
+                                
+                                functionOutput += "]"
                                 
                                 let functionMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: functionOutput, role: .function, messageType: .text, functionCallName: call.name)
                                 
@@ -908,9 +957,9 @@ class ChatViewModel: ObservableObject {
 //                                        self.endGenerating(userMessage: lastUserMessage)
                                     aiMessage.answering = false
                                     Task {
-                                        async let saveAi = aiMessage.save()
-                                        async let saveFn = functionMessage.save()
-                                        async let callChat = self.callChat()
+                                        async let saveAi: () = aiMessage.save()
+                                        async let saveFn: () = functionMessage.save()
+                                        async let callChat: () = self.callChat()
                                         await saveAi
                                         await saveFn
                                         await callChat
@@ -1171,8 +1220,22 @@ class ChatViewModel: ObservableObject {
         }
         else {
             self.endGenerating(userMessage: lastUserMessage)
-            DispatchQueue.main.async { [answer] in
-                aiMessage.content = answer
+            let mutableText = NSMutableString(string: answer) // Create a mutable copy of the text
+            let matches = detector.matches(in: answer, range: NSRange(location: 0, length: answer.utf16.count))
+            
+            // Iterate over the matches in reverse order
+            for match in matches.reversed() {
+                if let range = Range(match.range, in: answer),
+                   let matchText = answer[range].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                   let url = URL(string: "http://maps.apple.com/?q=\(matchText)") {
+                    let markdownLink = "[\(answer[range])](\(url))"
+                    mutableText.replaceCharacters(in: match.range, with: markdownLink)
+                }
+            }
+            
+            
+            DispatchQueue.main.async {
+                aiMessage.content = mutableText as String
                 Task {
                     await aiMessage.save()
                 }
@@ -1187,6 +1250,12 @@ class ChatViewModel: ObservableObject {
     
     func streamResponse() {
         self.resetSpeechToText()
+        
+        if store.purchasedSubscriptions.first == nil,
+           settings.gpt4Questions >= 15 {
+            showLimitExceededAlert = true
+            return
+        }
         
         if !chatCreated {
             chatCreated = true
@@ -1297,21 +1366,39 @@ extension AVAudioSession {
 class StreamSentenceSplitter {
     private var currentSentence: String = ""
     private let sentenceTerminators: [Character] = [".", "!", "?"]
+    private let abbreviations: Set<String> = ["st", "mr", "mrs", "dr", "ms", "jr", "sr"]
     
     var sentenceHandler: ((String) -> Void)?
     
     func handleStreamChunk(_ newValue: String) {
         for character in newValue {
             if sentenceTerminators.contains(character) {
-                currentSentence.append(character)
-                if let handler = sentenceHandler {
-                    handler(currentSentence)
+                if canTerminateSentence(with: character) {
+                    currentSentence.append(character)
+                    if let handler = sentenceHandler {
+                        handler(currentSentence)
+                    }
+                    currentSentence = ""
+                } else {
+                    currentSentence.append(character)
                 }
-                currentSentence = ""
             } else {
                 currentSentence.append(character)
             }
         }
     }
+    
+    private func canTerminateSentence(with terminator: Character) -> Bool {
+        let trimmedSentence = currentSentence.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let lastWord = trimmedSentence.split(separator: " ").last {
+            let lastWordString = String(lastWord).lowercased()
+            if abbreviations.contains(lastWordString) {
+                return false
+            }
+            if let lastCharacter = lastWordString.last, lastCharacter.isNumber {
+                return false
+            }
+        }
+        return true
+    }
 }
-

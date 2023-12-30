@@ -280,25 +280,32 @@ class Browser: UIViewController {
     
     func isGoodSearchURL(url: URL) -> Bool {
         let host = url.host(percentEncoded: false)
-        if host == nil || host!.isEmpty || host!.contains(/(google|\.gl|tiktok\.|youtube\.|twitter\.|instagram\.|fb\.|facebook|linkedin)/) {
+        if host == nil || host!.isEmpty || host!.contains(/(google|\.gl|tiktok\.|youtube\.|twitter\.|instagram\.|fb\.|facebook|linkedin|pinterest)/) {
             return false
         }
         return true
     }
     
-    func fetchHTML(from url: URL, completionHandler: @escaping (String?) -> Void) {
-        guard let w = webView else {
-            print("WebView has not been setup")
-            return
-        }
-        self.completionHandler = completionHandler
-        self.viewModel.browserUrl = url
-    }
+//    func fetchHTML(from url: URL, completionHandler: @escaping (String?) -> Void) {
+//        guard let w = webView else {
+//            print("WebView has not been setup")
+//            return
+//        }
+//        self.completionHandler = completionHandler
+//        self.viewModel.browserUrl = url
+//    }
     
     func fetchHTML(from url: URL) async -> String? {
         guard let _ = webView else {
             print("WebView has not been setup")
             return nil
+        }
+        
+        let alreadyOnPage = if let currentURL = webView?.url, currentURL == url {
+            true
+        }
+        else {
+            false
         }
         
         async let html: String? = withCheckedContinuation { continuation in
@@ -307,29 +314,17 @@ class Browser: UIViewController {
                 self.completionHandler = { html in
                     continuation.resume(returning: html)
                 }
+                if alreadyOnPage {
+                    self.extractHTMLContent()
+                }
             }
-            
-            
         }
         
-        self.viewModel.browserUrl = url
+        if !alreadyOnPage {
+            self.viewModel.browserUrl = url
+        }
         
         return await html
-    }
-    
-    func dumpHTML(completionHandler: @escaping (String?) -> Void) {
-        
-        webView?.evaluateJavaScript("document.documentElement.outerHTML.toString()", completionHandler: { (html: Any?, error: Error?) in
-            
-            let image = self.webView?.screenshot()
-            
-            if let htmlString = html as? String {
-                self.completionHandler?(htmlString)
-            } else {
-                self.completionHandler?(nil)
-            }
-            
-        })
     }
     
     func findURLs(input: String) -> [URL] {
@@ -378,20 +373,13 @@ class Browser: UIViewController {
 
 extension Browser: WKNavigationDelegate {
     
-    
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        
-        print("url loaded", webView.url)
-        print("view model url", viewModel.browserUrl)
-        
-        let url = viewModel.browserUrl
-        
+    private func extractHTMLContent() {
+        guard let webView = webView, let url = viewModel.browserUrl else { return }
+            
         if let handler = self.completionHandler {
             print("running async js")
             DispatchQueue.main.async {
-                if let url = url {
-                    self.takeScreenshot(url: url)
-                }
+                self.takeScreenshot(url: url)
                 
                 let scriptContent = """
                   let html = await new Promise((resolve, reject) => {
@@ -449,6 +437,15 @@ extension Browser: WKNavigationDelegate {
                 })
             }
         }
+    }
+    
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        
+        print("url loaded", webView.url)
+        print("view model url", viewModel.browserUrl)
+        
+        extractHTMLContent()
     }
     
     private func takeScreenshot(url: URL) {
@@ -568,10 +565,9 @@ class BrowserButton: UIButton {
 
         let indexPageAction = UIAction(title: "Import Page", image: UIImage(systemName: "doc.richtext"), handler: { _ in
             // handle index page action
-            print("Index Page tapped")
-            
-            Browser.shared.dumpHTML { html in
-                print(html)
+            if let url = Browser.shared.webView?.url {
+                print("Index Page tapped", url)
+                importedDocumentNotification.send([url])
             }
         })
         

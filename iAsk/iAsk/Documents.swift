@@ -302,9 +302,14 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
         
         if fileType == .docx {
             let docStrings = OfficeDocumentExtractor.shared.getTextFromDocx(fileUrl: url)
-            print(docStrings)
             return docStrings?.joined(separator: " ")
         }
+        
+        if fileType == .pptx {
+            let docStrings = OfficeDocumentExtractor.shared.getTextFromPptx(fileUrl: url)
+            return docStrings?.joined(separator: " ")
+        }
+        
         if fileType == .xlsx {
             let csvs = worksheetsToCSV(from: url)
             return csvs.map { """
@@ -312,11 +317,6 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
             worksheet csv contents:
             \($0.csv)
             """}.joined(separator: "\n\n")
-        }
-        if fileType == .pptx {
-            let docStrings = OfficeDocumentExtractor.shared.getTextFromPptx(fileUrl: url)
-            print(docStrings)
-            return docStrings?.joined(separator: " ")
         }
         
         // For all other data types, we can read the strings as utf-8

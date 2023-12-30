@@ -27,6 +27,8 @@
 		5367514A2B38007D00572E07 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = 536751492B38007D00572E07 /* Highlightr */; };
 		537865F72AE381AA0028FFDE /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F62AE381AA0028FFDE /* CameraView.swift */; };
 		537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F82AE381BE0028FFDE /* CameraViewModel.swift */; };
+		537F66532B3FA3E900BD29B5 /* CoreXLSX in Frameworks */ = {isa = PBXBuildFile; productRef = 537F66522B3FA3E900BD29B5 /* CoreXLSX */; };
+		537F66552B3FAEF400BD29B5 /* OfficeDocs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537F66542B3FAEF400BD29B5 /* OfficeDocs.swift */; };
 		538106242AA07432007F759E /* FFmpeg in Frameworks */ = {isa = PBXBuildFile; productRef = 538106232AA07432007F759E /* FFmpeg */; };
 		538106262AA07432007F759E /* FFmpeg-Kit in Frameworks */ = {isa = PBXBuildFile; productRef = 538106252AA07432007F759E /* FFmpeg-Kit */; };
 		538106272AA07441007F759E /* FFmpeg in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 538106232AA07432007F759E /* FFmpeg */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -128,6 +130,7 @@
 		5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreViewModel.swift; sourceTree = "<group>"; };
 		537865F62AE381AA0028FFDE /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		537865F82AE381BE0028FFDE /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
+		537F66542B3FAEF400BD29B5 /* OfficeDocs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeDocs.swift; sourceTree = "<group>"; };
 		538106302AA16F95007F759E /* Extensions.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Extensions.json; sourceTree = "<group>"; };
 		538106322AA59285007F759E /* RecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordButton.swift; sourceTree = "<group>"; };
 		538106342AA83E76007F759E /* TextSplitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSplitter.swift; sourceTree = "<group>"; };
@@ -171,6 +174,7 @@
 				5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */,
 				5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */,
 				5384D5F52A81D36600BA85A1 /* PinLayout in Frameworks */,
+				537F66532B3FA3E900BD29B5 /* CoreXLSX in Frameworks */,
 				5367514A2B38007D00572E07 /* Highlightr in Frameworks */,
 				5384D6322A8C6A2300BA85A1 /* CodeEditor in Frameworks */,
 				538106402AB124E8007F759E /* SwiftSoup in Frameworks */,
@@ -249,6 +253,7 @@
 				538106412AB2EA33007F759E /* Photos.swift */,
 				5384D6432A8FF05E00BA85A1 /* Google.swift */,
 				5384D62E2A8C1EA400BA85A1 /* Documents.swift */,
+				537F66542B3FAEF400BD29B5 /* OfficeDocs.swift */,
 				534B754F2AD4C1B400C16026 /* Vision.swift */,
 				538106342AA83E76007F759E /* TextSplitter.swift */,
 				5384D6232A82F8D800BA85A1 /* Database.swift */,
@@ -315,6 +320,7 @@
 				532E06682B19DD8700E911A8 /* OpenAI */,
 				53FF5D002B33813500D7CD88 /* MarkdownUI */,
 				536751492B38007D00572E07 /* Highlightr */,
+				537F66522B3FA3E900BD29B5 /* CoreXLSX */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -385,6 +391,7 @@
 				532E06672B19DD8700E911A8 /* XCRemoteSwiftPackageReference "OpenAI" */,
 				53FF5CFF2B33813500D7CD88 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */,
+				537F66512B3FA3E900BD29B5 /* XCRemoteSwiftPackageReference "CoreXLSX" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -429,6 +436,7 @@
 				537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */,
 				5384D6202A82F79500BA85A1 /* Secrets.swift in Sources */,
 				5384D60B2A82F44200BA85A1 /* HistoryView.swift in Sources */,
+				537F66552B3FAEF400BD29B5 /* OfficeDocs.swift in Sources */,
 				5384D63F2A8EF2F200BA85A1 /* ConvertMedia.swift in Sources */,
 				5384D6442A8FF05E00BA85A1 /* Google.swift in Sources */,
 				538106332AA59285007F759E /* RecordButton.swift in Sources */,
@@ -821,6 +829,14 @@
 				minimumVersion = 2.1.2;
 			};
 		};
+		537F66512B3FA3E900BD29B5 /* XCRemoteSwiftPackageReference "CoreXLSX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CoreOffice/CoreXLSX";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.2;
+			};
+		};
 		538106222AA07431007F759E /* XCRemoteSwiftPackageReference "ffmpeg-kit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tylerjonesio/ffmpeg-kit-spm.git";
@@ -968,6 +984,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */;
 			productName = Highlightr;
+		};
+		537F66522B3FA3E900BD29B5 /* CoreXLSX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 537F66512B3FA3E900BD29B5 /* XCRemoteSwiftPackageReference "CoreXLSX" */;
+			productName = CoreXLSX;
 		};
 		538106232AA07432007F759E /* FFmpeg */ = {
 			isa = XCSwiftPackageProductDependency;

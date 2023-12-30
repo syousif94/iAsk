@@ -226,7 +226,7 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         
         do {
             try AVAudioSession.sharedInstance().setActive(false)
-            let _ = try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.ambient)
+            let _ = try AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback)
             try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             print(error)

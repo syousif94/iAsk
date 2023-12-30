@@ -46,6 +46,15 @@
       }
     },
     {
+      "identity" : "corexlsx",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CoreOffice/CoreXLSX",
+      "state" : {
+        "revision" : "1391f3832ea2eeee5186ea8abb81ea49ed0609cc",
+        "version" : "0.14.2"
+      }
+    },
+    {
       "identity" : "ffmpeg-kit-spm",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tylerjonesio/ffmpeg-kit-spm.git",
@@ -205,6 +214,15 @@
       "state" : {
         "revision" : "425d9488ba55f58f0b34498c64c054c77fc2a44b",
         "version" : "2.2.11"
+      }
+    },
+    {
+      "identity" : "xmlcoder",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/maxdesiatov/XMLCoder.git",
+      "state" : {
+        "revision" : "ca932442d7481700f5434a7b138c47dd42d9902b",
+        "version" : "0.14.0"
       }
     },
     {

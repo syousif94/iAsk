@@ -301,11 +301,13 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         
         if importFileType == .doc || importFileType == .photo {
             
-            DispatchQueue.main.async {
-                self.status = "Indexing"
-            }
+            // FIXME: indexing needs to only happen if the file is too long at the time of question submission
             
-            try? await indexText(attachment: self)
+//            DispatchQueue.main.async {
+//                self.status = "Indexing"
+//            }
+//            
+//            try? await indexText(attachment: self)
         }
         else if importFileType == .url {
             DispatchQueue.main.async {
@@ -320,13 +322,13 @@ class Attachment: ObservableObject, Hashable, Identifiable {
                 self.generatePreviewImage()
             }
             
-            DispatchQueue.main.async {
-                self.status = "Indexing"
-            }
+//            DispatchQueue.main.async {
+//                self.status = "Indexing"
+//            }
             
-            if hasText {
-                try? await indexText(attachment: self)
-            }
+//            if hasText {
+//                try? await indexText(attachment: self)
+//            }
         }
         
         DispatchQueue.main.async {

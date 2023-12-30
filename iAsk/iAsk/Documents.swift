@@ -15,6 +15,8 @@ import GPTEncoder
 import Blackbird
 import USearch
 import NanoID
+import CoreXLSX
+import ZIPFoundation
 
 class InitialURLs {
     static let shared = InitialURLs()
@@ -298,17 +300,23 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
         
         // FIXME: handle office docs
         
-        if fileType == .doc {
-            
-        }
         if fileType == .docx {
-            
+            let docStrings = OfficeDocumentExtractor.shared.getTextFromDocx(fileUrl: url)
+            print(docStrings)
+            return docStrings?.joined(separator: " ")
         }
         if fileType == .xlsx {
-            
+            let csvs = worksheetsToCSV(from: url)
+            return csvs.map { """
+            worksheet name: \($0.name)
+            worksheet csv contents:
+            \($0.csv)
+            """}.joined(separator: "\n\n")
         }
         if fileType == .pptx {
-            
+            let docStrings = OfficeDocumentExtractor.shared.getTextFromPptx(fileUrl: url)
+            print(docStrings)
+            return docStrings?.joined(separator: " ")
         }
         
         // For all other data types, we can read the strings as utf-8
@@ -332,6 +340,50 @@ func extractText(url: URL, dataType: DataType? = nil) -> String? {
     }
     
     return nil
+}
+
+struct WorksheetCSV {
+    let name: String
+    let csv: String
+}
+
+func worksheetsToCSV(from url: URL) -> [WorksheetCSV] {
+    guard let file = XLSXFile(filepath: url.path) else {
+        fatalError("XLSX file at \(url.path) is corrupted or does not exist")
+    }
+
+    var worksheetsCSV = [WorksheetCSV]()
+
+    do {
+        let workbooks = try file.parseWorkbooks()
+        guard let sharedStrings = try file.parseSharedStrings() else { return worksheetsCSV }
+        
+        for workbook in workbooks {
+            let pathsAndNames = try file.parseWorksheetPathsAndNames(workbook: workbook)
+            for (name, path) in pathsAndNames {
+                let worksheet = try file.parseWorksheet(at: path)
+                var csvText = ""
+                
+                for row in worksheet.data?.rows ?? [] {
+                    let csvRow = row.cells.compactMap { cell -> String? in
+                        guard let value = cell.stringValue(sharedStrings) else { return nil }
+                        // Escape double quotes and wrap the value in double quotes if it contains a comma
+                        let escapedValue = value.contains(",") ? "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\"" : value
+                        return escapedValue
+                    }
+                    csvText += csvRow.joined(separator: ",") + "\n"
+                }
+                
+                if let worksheetName = name {
+                    worksheetsCSV.append(WorksheetCSV(name: worksheetName, csv: csvText))
+                }
+            }
+        }
+    } catch {
+        print("Error parsing XLSX file: \(error.localizedDescription)")
+    }
+    
+    return worksheetsCSV
 }
 
 func isFolder(url: URL) -> Bool {

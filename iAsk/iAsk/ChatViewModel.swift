@@ -507,23 +507,13 @@ class ChatViewModel: ObservableObject {
             
             Please obey the following rules:
             
-            1. Do not ask for permission before reading files or other information.
-            2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
-            3. If you are asked to ask someone a question, respond by calling the sms function.
-            4. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
-            5. Read the text in images to find information like calendar events and contact information
-            
-            Some examples of when to call read_files:
-            
-            Example #1:
-            user: picture.heic
-            user: add this to my calendar
-            assistant (you): read_files([picture.heic])
-            
-            Example #2:
-            user: document.pdf
-            user: what is this about?
-            assistant (you): read_files([document.pdf])
+            1. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
+            2. If you are asked to ask someone a question, respond by calling the sms function.
+            3. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
+            4. Be brief in your responses. It it ok to leave out warnings and extraneous information.
+            5. Collect all of the information you need before calling a function. If an argument is missing, ask a follow up quesiton before calling the function.
+            6. DO NOT call convert_media on code. Convert it yourself.
+            7. Always included addresses and links for places in the real world if they appear in documents the user has provided.
             
             You should only call search_contacts when someone explicitly asks for contact information.
             If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
@@ -561,23 +551,13 @@ class ChatViewModel: ObservableObject {
             
             Please obey the following rules:
             
-            1. Do not ask for permission before reading files or other information.
-            2. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
-            3. If you are asked to ask someone a question, respond by calling the sms function.
-            4. Assume that I will refer to my friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
-            5. Read the text in images to find information like calendar events and contact information
-            
-            Some examples of when to call read_files:
-            
-            Example #1:
-            user: picture.heic
-            user: ex. add to calendar, add this to my calendar, etc
-            assistant (you): read_files([picture.heic])
-            
-            Example #2:
-            user: document.pdf
-            user: what is this about?
-            assistant (you): read_files([document.pdf])
+            1. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
+            2. If you are asked to ask someone a question, respond by calling the sms function.
+            3. Assume that I will refer to my friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
+            4. Collect all of the information you need before calling a function. If an argument is missing, ask a follow up quesiton before calling the function.
+            5. DO NOT call convert_media on code. Convert it yourself.
+            6. Be brief in your responses. It it ok to leave out warnings and extraneous information.
+            7. Always included addresses and links for places in the real world if they appear in documents the user has provided.
             
             You should only call search_contacts when someone explicitly asks for contact information.
             If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
@@ -696,29 +676,24 @@ class ChatViewModel: ObservableObject {
         let throttledPublisher = textPublisher
             .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
         
-        let types: NSTextCheckingResult.CheckingType = [.address]
-       guard let detector = try? NSDataDetector(types: types.rawValue) else {
-           return
-       }
-
+        guard let detector = TextDetector() else {
+            return
+        }
+        
+        let latexToMarkdown = LaTeXImageMarkdownConverter(imageGenerator: LaTeXImageGenerator())
         
         throttledPublisher
             .receive(on: DispatchQueue.main)
             .sink { text in
-                let mutableText = NSMutableString(string: text) // Create a mutable copy of the text
-                let matches = detector.matches(in: text, range: NSRange(location: 0, length: text.utf16.count))
                 
-                // Iterate over the matches in reverse order
-                for match in matches.reversed() {
-                    if let range = Range(match.range, in: text),
-                       let matchText = text[range].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                       let url = URL(string: "http://maps.apple.com/?q=\(matchText)") {
-                        let markdownLink = "[\(text[range])](\(url))"
-                        mutableText.replaceCharacters(in: match.range, with: markdownLink)
-                    }
-                }
+                let replacedText = latexToMarkdown.convertLatexToMarkdown(in: text)
                 
+                let mutableText = detector.replaceAddresses(in: replacedText)
+
                 aiMessage.content = mutableText as String
+                
+                let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedbackGenerator.impactOccurred()
             }
             .store(in: &cancellables)
         
@@ -732,6 +707,7 @@ class ChatViewModel: ObservableObject {
                 }
                 
                 if let text = result.choices[0].delta.content {
+                    
                     answer += text
                     textPublisher.send(answer)
                     if speakAnswer {
@@ -743,6 +719,9 @@ class ChatViewModel: ObservableObject {
 //                    }
                 }
                 else if let functionCall = result.choices[0].delta.functionCall {
+                    
+                    let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                    impactFeedbackGenerator.impactOccurred()
                     
                     if let name = functionCall.name {
                         #if DEBUG
@@ -792,6 +771,9 @@ class ChatViewModel: ObservableObject {
         
         if let function = FunctionCall(rawValue: call.name) {
             
+            let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedbackGenerator.impactOccurred()
+            
             aiMessage.record.functionCallName = call.name
             aiMessage.record.functionCallArgs = call.arguments
             
@@ -833,6 +815,8 @@ class ChatViewModel: ObservableObject {
                         aiMessage.answering = false
                         self.messages.append(functionMessage)
                         self.endGenerating(userMessage: lastUserMessage)
+                        let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedbackGenerator.impactOccurred()
                         Task {
                             async let saveAiMessage: () = aiMessage.save()
                             
@@ -956,6 +940,8 @@ class ChatViewModel: ObservableObject {
                                     self.messages.append(functionMessage)
 //                                        self.endGenerating(userMessage: lastUserMessage)
                                     aiMessage.answering = false
+                                    let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                                    impactFeedbackGenerator.impactOccurred()
                                     Task {
                                         async let saveAi: () = aiMessage.save()
                                         async let saveFn: () = functionMessage.save()
@@ -1015,13 +1001,6 @@ class ChatViewModel: ObservableObject {
                 } catch {
                     print("Failed to decode JSON: \(error)")
                 }
-            case .searchDocuments:
-                do {
-                    let args = try call.toArgs(SearchDocumentsArgs.self)
-                }
-                catch {
-                    print("Failed to decode JSON: \(error)")
-                }
             case .python:
                 do {
                     let args = try call.toArgs(PythonArgs.self)
@@ -1034,49 +1013,6 @@ class ChatViewModel: ObservableObject {
                         
                         """
                     }
-                }
-                catch {
-                    print("Failed to decode JSON: \(error)")
-                }
-            case .summarizeDocuments:
-                do {
-                    let args = try call.toArgs(SummarizeDocumentsArgs.self)
-                    let urls = args.files.compactMap { filePath -> URL? in
-                        if let attachment = self.latestAttachments.first(where: { a in
-                            a.dataRecord.name == filePath && a.hasText
-                        }) {
-                            return attachment.url
-                        }
-                        return URL(string: filePath)
-                    }
-                    guard urls.count > 0 else {
-                        print("No valid files to summarize")
-                        return
-                    }
-                    Task { [lastUserMessage] in
-                        for url in urls {
-                            let text = extractText(url: url)
-                            if let text = text {
-                                DispatchQueue.main.async {
-                                    aiMessage.content += "\n\n"
-                                }
-                                let summary = await summarize(text) { token in
-                                    DispatchQueue.main.async {
-                                        aiMessage.content += token
-                                    }
-                                }
-                                
-                            }
-                        }
-                        DispatchQueue.main.async {
-                            aiMessage.answering = false
-                        }
-                        self.endGenerating(userMessage: lastUserMessage)
-                        async let saveAiMessage: () = aiMessage.save()
-                        await saveAiMessage
-                        
-                    }
-                    
                 }
                 catch {
                     print("Failed to decode JSON: \(error)")
@@ -1161,7 +1097,8 @@ class ChatViewModel: ObservableObject {
                         DispatchQueue.main.async {
                             aiMessage.answering = false
                             self.messages.append(functionMessage)
-                            
+                            let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                            impactFeedbackGenerator.impactOccurred()
                             Task {
                                 async let saveAiMessage: () = aiMessage.save()
                                 
@@ -1190,10 +1127,16 @@ class ChatViewModel: ObservableObject {
                         
                         print("event generated", event)
                         
+                        let id = await Events.shared.insertEvent(event: event)
                         
+                        print("event saved", id)
+                        
+                        aiMessage.systemIdentifier = id
                     }
                     DispatchQueue.main.async {
                         aiMessage.answering = false
+                        let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedbackGenerator.impactOccurred()
                         Task {
                             async let saveAiMessage: () = aiMessage.save()
                             
@@ -1215,24 +1158,15 @@ class ChatViewModel: ObservableObject {
                     print("Failed to decode JSON: \(error)")
                     self.endGenerating(userMessage: lastUserMessage)
                 }
+            case .editCalendarEvent:
+                break
             }
             
         }
         else {
             self.endGenerating(userMessage: lastUserMessage)
-            let mutableText = NSMutableString(string: answer) // Create a mutable copy of the text
-            let matches = detector.matches(in: answer, range: NSRange(location: 0, length: answer.utf16.count))
-            
-            // Iterate over the matches in reverse order
-            for match in matches.reversed() {
-                if let range = Range(match.range, in: answer),
-                   let matchText = answer[range].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                   let url = URL(string: "http://maps.apple.com/?q=\(matchText)") {
-                    let markdownLink = "[\(answer[range])](\(url))"
-                    mutableText.replaceCharacters(in: match.range, with: markdownLink)
-                }
-            }
-            
+            let latexReplaced = latexToMarkdown.convertLatexToMarkdown(in: answer)
+            let mutableText = detector.replaceAddresses(in: latexReplaced)
             
             DispatchQueue.main.async {
                 aiMessage.content = mutableText as String

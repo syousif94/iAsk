@@ -72,6 +72,6 @@ public class OfficeDocumentExtractor {
     }
     
     private func stripXMLTags(from text: String) -> String {
-            return text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression, range: nil)
-        }
+        return text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression, range: nil)
+    }
 }

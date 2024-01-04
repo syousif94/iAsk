@@ -44,8 +44,6 @@ enum FunctionCall: String, Codable {
     case searchContacts = "search_contacts"
     case search = "search"
     case convertMedia = "convert_media"
-    case searchDocuments = "search_documents"
-    case summarizeDocuments = "summarize_documents"
     case python = "python"
     case writeFiles = "write_files"
     case readFiles = "read_files"
@@ -53,6 +51,7 @@ enum FunctionCall: String, Codable {
     case call = "call"
     case createCalendarEvent = "create_calendar_event"
     case getCalendar = "get_calendar"
+    case editCalendarEvent = "edit_calendar_event"
 }
 
 struct WriteFilesArgs: Codable {
@@ -142,43 +141,6 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               required: ["query"]
             )
       ),
-//      ChatFunctionDeclaration(
-//          name: "search_documents",
-//          description: "Semantically search documents to find information relevant to users' questions",
-//          parameters:
-//            JSONSchema(
-//              type: .object,
-//              properties: [
-//                "queries": .init(type: .array, description: "A list of queries to search for", items: JSONSchema.Items(type: .string)),
-//                "files": .init(type: .array, description: "A list of file paths to search", items: JSONSchema.Items(type: .string))
-//              ],
-//              required: ["queries", "files"]
-//            )
-//      ),
-//      ChatFunctionDeclaration(
-//          name: "index_documents",
-//          description: "Create a semantic index for documents that can be used to answer user questions",
-//          parameters:
-//            JSONSchema(
-//              type: .object,
-//              properties: [
-//                "files": .init(type: .array, description: "A list of file paths to index", items: JSONSchema.Items(type: .string))
-//              ],
-//              required: ["files"]
-//            )
-//      ),
-//      ChatFunctionDeclaration(
-//          name: "summarize_documents",
-//          description: "Summarize or extract data from a collection of documents",
-//          parameters:
-//            JSONSchema(
-//              type: .object,
-//              properties: [
-//                "files": .init(type: .array, description: "A list of file paths to summarize", items: JSONSchema.Items(type: .string))
-//              ],
-//              required: ["files"]
-//            )
-//      ),
 //      ChatFunctionDeclaration(
 //          name: "python",
 //          description: "Run python code and get the output back",
@@ -325,29 +287,22 @@ func getFunctions() -> [ChatFunctionDeclaration] {
 //              required: ["files"]
 //            )
 //      ),
-      ChatFunctionDeclaration(
-          name: "read_files",
-          description: "Read files using their path",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "files": .init(
-                    type: .array,
-                    items: JSONSchema.Items(
-                        type: .string
-                )),
-//                "summaryRequested": .init(type: .boolean, description: "Set to true if the user needs a summary of the file(s)"),
-//                "mathRequested": .init(type: .boolean, description: "Set to true if the user needs any numbers added together"),
-                "editsRequestedFor": .init(
-                    type: .array,
-                    items: JSONSchema.Items(
-                        type: .string
-                )),
-              ],
-              required: ["files"]
-            )
-      )
+//      ChatFunctionDeclaration(
+//          name: "read_files",
+//          description: "Read files using their path",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "files": .init(
+//                    type: .array,
+//                    items: JSONSchema.Items(
+//                        type: .string
+//                ))
+//              ],
+//              required: ["files"]
+//            )
+//      )
     ]
     return functions
 }

@@ -247,9 +247,7 @@ class Browser: UIViewController {
     }
     
     func extractLinks(html: String) -> SearchResults {
-        
-        print("dumped html", html)
-        
+
         guard let doc = try? SwiftSoup.parse(html),
               let links: Elements = try? doc.select("a") else {
             return .init()
@@ -558,10 +556,10 @@ class BrowserButton: UIButton {
             UIApplication.shared.endEditing()
         })
 
-        let crawlSiteAction = UIAction(title: "Import Site", image: UIImage(systemName: "doc.on.doc"), handler: { _ in
-            // handle crawl site action
-            print("Crawl Site tapped")
-        })
+//        let crawlSiteAction = UIAction(title: "Import Site", image: UIImage(systemName: "doc.on.doc"), handler: { _ in
+//            // handle crawl site action
+//            print("Crawl Site tapped")
+//        })
 
         let indexPageAction = UIAction(title: "Import Page", image: UIImage(systemName: "doc.richtext"), handler: { _ in
             // handle index page action
@@ -571,16 +569,16 @@ class BrowserButton: UIButton {
             }
         })
         
-        let refreshAction = UIAction(title: "Refresh", image: UIImage(systemName: "arrow.clockwise"), handler: { _ in
-            // handle crawl site action
-            print("Crawl Site tapped")
-        })
+//        let refreshAction = UIAction(title: "Refresh", image: UIImage(systemName: "arrow.clockwise"), handler: { _ in
+//            // handle crawl site action
+//            print("Crawl Site tapped")
+//        })
         
-        var elements: [UIMenuElement] = [crawlSiteAction, indexPageAction, refreshAction, chatAction]
+        var elements: [UIMenuElement] = [chatAction, indexPageAction]
         
-        #if targetEnvironment(macCatalyst)
-        elements.remove(at: 0)
-        #endif
+//        #if targetEnvironment(macCatalyst)
+//        elements.remove(at: 0)
+//        #endif
 
         let menu = UIMenu(title: "", children: elements)
         self.menu = menu

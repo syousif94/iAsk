@@ -18,6 +18,9 @@
 		532F313B2AC7C3260012D939 /* AddButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532F313A2AC7C3260012D939 /* AddButton.swift */; };
 		533AFB2C2AD75D2400B24FE3 /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = 533AFB2B2AD75D2400B24FE3 /* WrappingHStack */; };
 		533AFB2E2ADA325C00B24FE3 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533AFB2D2ADA325C00B24FE3 /* BrowserViewModel.swift */; };
+		533E91D42B460F6000A7BA6D /* StreamingServerEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533E91D32B460F6000A7BA6D /* StreamingServerEvents.swift */; };
+		533E91D72B46288300A7BA6D /* SwiftMath in Frameworks */ = {isa = PBXBuildFile; productRef = 533E91D62B46288300A7BA6D /* SwiftMath */; };
+		533E91D92B4629A600A7BA6D /* Latex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533E91D82B4629A600A7BA6D /* Latex.swift */; };
 		534263D42AECE9F6000EF8B4 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534263D32AECE9F6000EF8B4 /* ShareViewController.swift */; };
 		534263DB2AECE9F6000EF8B4 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 534263D12AECE9F6000EF8B4 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		534A6B542AEB2EB200B8AB7A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534A6B532AEB2EB200B8AB7A /* SettingsView.swift */; };
@@ -120,6 +123,8 @@
 		530948DC2A81CC0500EC98F9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		532F313A2AC7C3260012D939 /* AddButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddButton.swift; sourceTree = "<group>"; };
 		533AFB2D2ADA325C00B24FE3 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
+		533E91D32B460F6000A7BA6D /* StreamingServerEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingServerEvents.swift; sourceTree = "<group>"; };
+		533E91D82B4629A600A7BA6D /* Latex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Latex.swift; sourceTree = "<group>"; };
 		534263D12AECE9F6000EF8B4 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		534263D32AECE9F6000EF8B4 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		534263D82AECE9F6000EF8B4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -172,6 +177,7 @@
 				5381063D2AAFF2B2007F759E /* ZIPFoundation in Frameworks */,
 				533AFB2C2AD75D2400B24FE3 /* WrappingHStack in Frameworks */,
 				5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */,
+				533E91D72B46288300A7BA6D /* SwiftMath in Frameworks */,
 				5384D64A2A9199DA00BA85A1 /* SwiftyContacts in Frameworks */,
 				5384D5F52A81D36600BA85A1 /* PinLayout in Frameworks */,
 				537F66532B3FA3E900BD29B5 /* CoreXLSX in Frameworks */,
@@ -261,6 +267,8 @@
 				5384D61F2A82F79500BA85A1 /* Secrets.swift */,
 				5384D6062A81DE3C00BA85A1 /* DocumentPicker.swift */,
 				5384D6082A81DE6100BA85A1 /* NotificationCenter.swift */,
+				533E91D82B4629A600A7BA6D /* Latex.swift */,
+				533E91D32B460F6000A7BA6D /* StreamingServerEvents.swift */,
 				530948D72A81CC0500EC98F9 /* Assets.xcassets */,
 				530948D92A81CC0500EC98F9 /* LaunchScreen.storyboard */,
 				530948DC2A81CC0500EC98F9 /* Info.plist */,
@@ -321,6 +329,7 @@
 				53FF5D002B33813500D7CD88 /* MarkdownUI */,
 				536751492B38007D00572E07 /* Highlightr */,
 				537F66522B3FA3E900BD29B5 /* CoreXLSX */,
+				533E91D62B46288300A7BA6D /* SwiftMath */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -392,6 +401,7 @@
 				53FF5CFF2B33813500D7CD88 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */,
 				537F66512B3FA3E900BD29B5 /* XCRemoteSwiftPackageReference "CoreXLSX" */,
+				533E91D52B46288300A7BA6D /* XCRemoteSwiftPackageReference "SwiftMath" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -440,7 +450,9 @@
 				5384D63F2A8EF2F200BA85A1 /* ConvertMedia.swift in Sources */,
 				5384D6442A8FF05E00BA85A1 /* Google.swift in Sources */,
 				538106332AA59285007F759E /* RecordButton.swift in Sources */,
+				533E91D92B4629A600A7BA6D /* Latex.swift in Sources */,
 				5384D6132A82F61300BA85A1 /* Keyboard.swift in Sources */,
+				533E91D42B460F6000A7BA6D /* StreamingServerEvents.swift in Sources */,
 				533AFB2E2ADA325C00B24FE3 /* BrowserViewModel.swift in Sources */,
 				5384D63D2A8EF2D300BA85A1 /* Location.swift in Sources */,
 				534B754E2AD498BB00C16026 /* EventKit.swift in Sources */,
@@ -627,11 +639,13 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iAsk/Info.plist;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Required for calendar based functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera for image to text functionality.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Allow access to your contacts to call and message people from iAsk.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Allow access for location based functionality.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Allow access for location based functionality.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow access to the mic for speech to text functionality.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Required for reminders based functionality.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow access to the mic for speech to text functionality.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -667,11 +681,13 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iAsk/Info.plist;
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "Required for calendar based functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera for image to text functionality.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Allow access to your contacts to call and message people from iAsk.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Allow access for location based functionality.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Allow access for location based functionality.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow access to the mic for speech to text functionality.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "Required for reminders based functionality.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Allow access to the mic for speech to text functionality.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -819,6 +835,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.2.11;
+			};
+		};
+		533E91D52B46288300A7BA6D /* XCRemoteSwiftPackageReference "SwiftMath" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mgriebling/SwiftMath.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
 			};
 		};
 		536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
@@ -979,6 +1003,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 533AFB2A2AD75D2400B24FE3 /* XCRemoteSwiftPackageReference "WrappingHStack" */;
 			productName = WrappingHStack;
+		};
+		533E91D62B46288300A7BA6D /* SwiftMath */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 533E91D52B46288300A7BA6D /* XCRemoteSwiftPackageReference "SwiftMath" */;
+			productName = SwiftMath;
 		};
 		536751492B38007D00572E07 /* Highlightr */ = {
 			isa = XCSwiftPackageProductDependency;

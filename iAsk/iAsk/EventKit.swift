@@ -12,6 +12,7 @@ import UIKit
 import EventKitUI
 import SwiftUI
 
+@MainActor
 class Events {
     static let shared = Events()
     
@@ -21,12 +22,17 @@ class Events {
         
         let status = EKEventStore.authorizationStatus(for: entity)
         
+        
+        
         switch status {
         case .authorized:
+            print("event kit authorized")
             return true
         case .denied:
+            print("event kit denied")
             return false
         case .notDetermined:
+            print("event kit not determined")
             if entity == .event {
                 return try await eventStore.requestFullAccessToEvents()
             }
@@ -36,6 +42,7 @@ class Events {
             
             return false
         default:
+            print("event kit default")
             return false
         }
     }
@@ -71,16 +78,20 @@ class Events {
         return event
     }
     
-    func insertEvent(event: EKEvent) async {
+    func insertEvent(event: EKEvent) async -> String? {
         guard let access = try? await requestAccess(for: .event), access else {
-            return
+            print("no access to events")
+            return nil
         }
+        
         do {
             try eventStore.save(event, span: .thisEvent, commit: true)
-            print("saved event", event.eventIdentifier)
+            return event.eventIdentifier
         } catch {
             print("Failed to save event with error: \(error)")
         }
+        
+        return nil
     }
     
     func insertReminder(reminder: EKReminder) async {
@@ -108,44 +119,79 @@ class Events {
         
         return reminder
     }
+    
+    func getEvent(withIdentifier identifier: String) async -> EKEvent? {
+        guard let access = try? await requestAccess(for: .event), access else {
+            return nil
+        }
+        let event = eventStore.event(withIdentifier: identifier)
+        return event
+    }
+    
+    func getReminder(withIdentifier identifier: String) async -> EKReminder? {
+        guard let access = try? await requestAccess(for: .reminder), access else {
+            return nil
+        }
+        let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder
+        return reminder
+    }
+    
+    func getUpcomingEvents() async -> [EKEvent] {
+        guard let access = try? await requestAccess(for: .event), access else {
+            return []
+        }
+        
+        let startDate = Date().dateAtStartOf(.hour)
+        let endDate = Calendar.current.date(byAdding: .year, value: 1, to: startDate)
+
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate!, calendars: nil)
+
+        let events = eventStore.events(matching: predicate)
+        
+        return []
+    }
 }
 
 
-class AddEventController: UIViewController, EKEventEditViewDelegate {
-    let eventStore = EKEventStore()
-    
-    func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) {
-        controller.dismiss(animated: true, completion: nil)
-        parent?.dismiss(animated: true, completion: nil)
+struct EventEditView: UIViewControllerRepresentable {
+    @Binding var eventId: String?
+    @Environment(\.presentationMode) var presentationMode
+    var onEventDeleted: (() -> Void)?
+
+    func makeUIViewController(context: Context) -> EKEventEditViewController {
+        let editViewController = EKEventEditViewController()
+        editViewController.editViewDelegate = context.coordinator
+        return editViewController
     }
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        eventStore.requestAccess( to: EKEntityType.event, completion: { (granted, error) in
-            DispatchQueue.main.async {
-                if (granted) && (error == nil) {
-                    let eventController = EKEventEditViewController()
-                    
-                    eventController.eventStore = self.eventStore
-                    eventController.editViewDelegate = self
-                    eventController.modalPresentationStyle = .overCurrentContext
-                    eventController.modalTransitionStyle = .crossDissolve
-                    
-                    self.present(eventController, animated: true, completion: nil)
-                }
+    func updateUIViewController(_ uiViewController: EKEventEditViewController, context: Context) {
+        let eventStore = EKEventStore()
+        eventStore.requestFullAccessToEvents { granted, error in
+            if granted && error == nil, let eventId = eventId, let event = eventStore.event(withIdentifier: eventId) {
+                uiViewController.eventStore = eventStore
+                uiViewController.event = event
             }
         }
-        )
-    }
-}
-
-struct AddEvent: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> AddEventController {
-        return AddEventController()
     }
     
-    func updateUIViewController(_ uiViewController: AddEventController, context: Context) {
-        // We need this to follow the protocol, but don't have to implement it
-        // Edit here to update the state of the view controller with information from SwiftUI
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, EKEventEditViewDelegate {
+        var parent: EventEditView
+        
+        init(_ parent: EventEditView) {
+            self.parent = parent
+        }
+        
+        func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) {
+            parent.presentationMode.wrappedValue.dismiss()
+            
+            if action == .deleted {
+                // Notify SwiftUI that the event was deleted
+                parent.onEventDeleted?()
+            }
+        }
     }
 }

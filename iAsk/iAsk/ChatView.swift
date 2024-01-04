@@ -228,18 +228,12 @@ struct ChatView: View {
                                 .onPreferenceChange(
                                     ViewOffsetKey.self,
                                     perform: { value in
-                                        print("offset: \(value)") // offset: 1270.3333333333333 when User has reached the bottom
-                                        print("height: \(scrollViewSize.height)") // height: 2033.3333333333333
-                                        print("whole height: \(wholeSize.height)")
-                                        print("geometry height", geometry.size.height)
-                                        print("bottomButtonSize", bottomButtonSize.height)
 
                                         if value >= scrollViewSize.height - wholeSize.height - bottomButtonSize.height {
                                             hasReachedBottom = true
                                             print("User has reached the bottom of the ScrollView.")
                                         } else {
                                             hasReachedBottom = false
-                                            print("not reached.")
                                         }
                                     }
                                 )
@@ -646,6 +640,8 @@ struct MessageView: View {
             .frame(alignment: .topLeading)
             .multilineTextAlignment(.leading)
             .markdownCodeSyntaxHighlighter(.highlightr(theme: colorScheme == .dark ? "monokai" : "xcode"))
+            .markdownImageProvider(.local)
+            .markdownInlineImageProvider(.local)
             .markdownBlockStyle(\.table, body: { configuration in
                 configuration.label.padding(.top, 6)
                     .contextMenu {
@@ -683,7 +679,7 @@ struct MessageView: View {
                 }
             })
             .markdownTextStyle(\.code) {
-                  FontFamilyVariant(.monospaced)
+                FontFamilyVariant(.monospaced)
                 FontWeight(.bold)
             }
             .markdownBlockStyle(\.listItem, body: { configuration in
@@ -694,7 +690,6 @@ struct MessageView: View {
                     .padding(.top)
                     .padding(.bottom)
             })
-            
             .simultaneousGesture(TapGesture().onEnded({
                 UIApplication.shared.endEditing()
             }))
@@ -821,6 +816,37 @@ struct MessageView: View {
                 })
             }
         }
+}
+
+struct LocalImageProvider: ImageProvider {
+    public func makeImage(url: URL?) -> some View {
+        if let url = url, let image = UIImage(contentsOfFile: url.path(percentEncoded: true)) {
+            Image(uiImage: image)
+        }
+      }
+}
+
+struct LocalInlineImageProvider: InlineImageProvider {
+    public func image(with url: URL, label: String) async throws -> Image {
+        if let image = UIImage(contentsOfFile: url.path(percentEncoded: true)) {
+            Image(uiImage: image)
+        }
+        else {
+            Image(uiImage: UIImage())
+        }
+    }
+}
+
+extension InlineImageProvider where Self == LocalInlineImageProvider {
+  static var local: Self {
+    .init()
+  }
+}
+
+extension ImageProvider where Self == LocalImageProvider {
+  static var local: Self {
+    .init()
+  }
 }
 
 struct ReadingFilesMessageView: View {
@@ -1001,6 +1027,10 @@ struct EventsMessageView: View {
     @State var duration: String = ""
     @State var timeAway: String = ""
     
+    @State private var eventId: String?
+    @State private var showingEventEditView = false
+    @State var showMissingEventAlert = false
+    
     enum JsonKeys: String, CaseIterable {
         case location
         case title
@@ -1048,6 +1078,53 @@ struct EventsMessageView: View {
             }
             .background(Color(hex:"#000000", alpha: 0.1))
             .clipShape(RoundedRectangle(cornerRadius: 12))
+            .onTapGesture {
+                if let identifier = message.systemIdentifier {
+                    Task {
+                        if let event = await Events.shared.getEvent(withIdentifier: identifier) {
+                            eventId = identifier
+                            showingEventEditView = true
+                        }
+                        else {
+                            showMissingEventAlert = true
+                        }
+                    }
+                    
+                }
+            }
+            .alert(isPresented: $showMissingEventAlert) {
+                Alert(
+                    title: Text("This event has been deleted."),
+                    message: Text("Do you want to recreate it?"),
+                    primaryButton: .default(Text("Yes")) {
+                        Task {
+                            let call = FunctionCallResponse()
+                            call.name = message.record.functionCallName!
+                            call.arguments = message.record.functionCallArgs!
+                            if let args = try? call.toArgs(CreateCalendarEventArgs.self),
+                               let event = Events.shared.createEvent(args: args)
+                            {
+                                
+                                let id = await Events.shared.insertEvent(event: event)
+                                message.systemIdentifier = id
+                                DispatchQueue.main.async {
+                                    self.eventId = id
+                                    self.showingEventEditView = true
+                                }
+                                await message.save()
+                            }
+                        }
+                    },
+                    secondaryButton: .cancel() {
+                        
+                    }
+                )
+            }
+            .sheet(isPresented: $showingEventEditView) {
+                        EventEditView(eventId: $eventId) {
+
+                        }
+                    }
             
 //            if !answering {
 //                HStack {
@@ -1065,6 +1142,7 @@ struct EventsMessageView: View {
         }
         .padding(.horizontal)
         .padding(.bottom)
+        
         .onReceive(message.$answering){ newValue in
             answering = newValue
         }

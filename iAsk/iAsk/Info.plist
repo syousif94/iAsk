@@ -54,6 +54,10 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>$(GID)</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Required for calendar management.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Required for reminder management.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

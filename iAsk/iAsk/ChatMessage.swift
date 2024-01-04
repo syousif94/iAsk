@@ -41,6 +41,12 @@ class Message: ObservableObject, Equatable, Identifiable {
         }
     }
     
+    @Published var systemIdentifier: String? {
+        didSet {
+            record.systemIdentifier = systemIdentifier
+        }
+    }
+    
     @Published var answering = false
     
     // use this to keep track of the call type
@@ -68,10 +74,22 @@ class Message: ObservableObject, Equatable, Identifiable {
         }
         if record.messageType == .data {
             let contentFromAttachments = attachments.map { attachment in
+                var text = ""
                 if let url = attachment.url, !url.isFileURL, let path = getDownloadURL(for: url) {
-                    return "file_path: \(path.lastPathComponent)"
+                    text += "file_path: \(path.lastPathComponent)"
                 }
-                return "file_path: \(attachment.dataRecord.name)"
+                
+                text += "file_path: \(attachment.dataRecord.name)"
+                
+                if let fileText = attachment.readFile() {
+                    text += """
+                    
+                    file_content:
+                    \(fileText)
+                    """
+                }
+                
+                return text
             }.joined(separator: "\n")
             if record.role == .function {
                 return .init(role: record.role, content: contentFromAttachments, name: record.functionCallName)
@@ -106,6 +124,7 @@ class Message: ObservableObject, Equatable, Identifiable {
     init(record: MessageRecord) {
         self.record = record
         self.content = record.content
+        self.systemIdentifier = record.systemIdentifier
         if let name = record.functionCallName {
             self.functionType = FunctionCall(rawValue: name)
         }

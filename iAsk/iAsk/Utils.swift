@@ -409,3 +409,33 @@ struct ViewOffsetKey: PreferenceKey {
         value += nextValue()
     }
 }
+
+class TextDetector {
+    private let detector: NSDataDetector
+    
+    init?() {
+        let types: NSTextCheckingResult.CheckingType = [.address]
+           guard let detector = try? NSDataDetector(types: types.rawValue) else {
+               return nil
+           }
+        
+        self.detector = detector
+    }
+    
+    func replaceAddresses(in text: String) -> NSMutableString {
+        let mutableText = NSMutableString(string: text) // Create a mutable copy of the text
+        let matches = detector.matches(in: text, range: NSRange(location: 0, length: text.utf16.count))
+        
+        // Iterate over the matches in reverse order
+        for match in matches.reversed() {
+            if let range = Range(match.range, in: text),
+               let matchText = text[range].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: "http://maps.apple.com/?q=\(matchText)") {
+                let markdownLink = "[\(text[range])](\(url))"
+                mutableText.replaceCharacters(in: match.range, with: markdownLink)
+            }
+        }
+        
+        return mutableText
+    }
+}

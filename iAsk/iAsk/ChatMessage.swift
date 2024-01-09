@@ -307,6 +307,15 @@ class Attachment: ObservableObject, Hashable, Identifiable {
         return URL(string: dataRecord.path)
     }
     
+    var localURL: URL? {
+        guard let url = url,
+              let localUrl = url.isFileURL ? url : getDownloadURL(for: url) else {
+            return nil
+        }
+        
+        return localUrl
+    }
+    
     func index() async {
         guard let url = url else {
             return

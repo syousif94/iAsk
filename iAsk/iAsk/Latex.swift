@@ -9,29 +9,6 @@ import Foundation
 import SwiftMath
 import UIKit
 
-func replaceLatexWithImage(in text: String) -> String {
-    let pattern = "\\\\\\[(.*?)\\\\\\]|\\\\\\((.*?)\\\\\\)"
-    var modifiedText = text
-
-    do {
-        let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
-        let range = NSRange(text.startIndex..., in: text)
-        
-        let matches = regex.matches(in: text, options: [], range: range).reversed()
-        for match in matches {
-            if let matchRange = Range(match.range, in: text) {
-                let equation = String(text[matchRange])
-                let imageName = hashString(equation)
-                let markdownImage = "![equation](images/\(imageName).png)"
-                modifiedText.replaceSubrange(matchRange, with: markdownImage)
-            }
-        }
-    } catch {
-        print("Invalid regex: \(error.localizedDescription)")
-    }
-
-    return modifiedText
-}
 
 class LaTeXImageMarkdownConverter {
     private let imageGenerator: LaTeXImageGenerator
@@ -41,11 +18,11 @@ class LaTeXImageMarkdownConverter {
     }
 
     func convertLatexToMarkdown(in text: String) -> String {
-        let pattern = "\\\\\\[(.*?)\\\\\\]|\\\\\\((.*?)\\\\\\)"
+        let pattern = #"\\\[.*?\\\]|\\\(.*?\\\)"#
         var modifiedText = text
 
         do {
-            let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+            let regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
             let range = NSRange(text.startIndex..., in: text)
             
             let matches = regex.matches(in: text, options: [], range: range).reversed()
@@ -54,7 +31,7 @@ class LaTeXImageMarkdownConverter {
                     let equation = String(text[matchRange])
                     if let _ = self.imageGenerator.image(from: equation) {
                         let fileURL = self.imageGenerator.cacheURL(for: equation)
-                        let markdownImageLink = "![equation](\(fileURL.absoluteString.replacingOccurrences(of: "@\(Int(UIScreen.main.scale))x", with: "")))"
+                        let markdownImageLink = "![latex: \(LaTeXImageGenerator.extractEquation(from: equation))](\(fileURL.absoluteString.replacingOccurrences(of: "@\(Int(UIScreen.main.scale))x", with: "")))"
                         modifiedText = modifiedText.replacingOccurrences(of: equation, with: markdownImageLink)
                     }
                 }
@@ -86,24 +63,33 @@ class LaTeXImageGenerator {
         return Disk.cache.getPath(for: "latex/\(hashedName)@\(Int(UIScreen.main.scale))x.png")!
     }
     
+    static func extractEquation(from markdown: String) -> String {
+        
+        var markdown = markdown
+        
+        if markdown.hasPrefix("{{") {
+            markdown = "{" + markdown.dropFirst(2)
+        }
+        else if markdown.hasPrefix("\\[") || markdown.hasPrefix("\\(") {
+            markdown = String(markdown.dropFirst(2))
+        }
+        
+        if markdown.hasSuffix("\\]") || markdown.hasSuffix("\\)") {
+            markdown = String(markdown.dropLast(2))
+        }
+        
+        return markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
     func image(from latex: String) -> UIImage? {
         let fileURL = cacheURL(for: latex)
         
         // Check if the image is already cached
-        if let cachedImage = UIImage(contentsOfFile: fileURL.path) {
-            return cachedImage
-        }
+//        if let cachedImage = UIImage(contentsOfFile: fileURL.path) {
+//            return cachedImage
+//        }
         
-        let text = latex
-            .replacingOccurrences(of: "{{", with: "{")
-            .replacingOccurrences(of: "}}", with: "}")
-            .replacingOccurrences(of: "\\[", with: "")
-            .replacingOccurrences(of: "\\]", with: "")
-            .replacingOccurrences(of: "\\(", with: "")
-            .replacingOccurrences(of: "\\)", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        print(text)
+        let text = Self.extractEquation(from: latex)
         
         let mathImage = MTMathImage(latex: text, fontSize: 18, textColor: .label)
         mathImage.font = MTFontManager().termesFont(withSize: 18)

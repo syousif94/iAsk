@@ -114,15 +114,24 @@ extension StreamingSession {
     }
     
     // Function to create the request payload with the base64 encoded image
-    func createRequestPayload(with image: UIImage, question: String) -> Data? {
-        guard let base64Image = encodeImageToBase64(image) else { return nil }
+    func createRequestPayload(with images: [UIImage], question: String) -> Data? {
         
-        let imageMessage: [String: Any] = [
-            "type": "image_url",
-            "image_url": [
-                "url": "data:image/jpeg;base64,\(base64Image)"
-            ]
-        ]
+        var imageMessages = [[String: Any]]()
+        
+        for image in images {
+            if let base64Image = encodeImageToBase64(image) {
+                let imageMessage: [String: Any] = [
+                    "type": "image_url",
+                    "image_url": [
+                        "url": "data:image/jpeg;base64,\(base64Image)"
+                    ]
+                ]
+                
+                imageMessages.append(imageMessage)
+            }
+        }
+        
+        
         
         let textMessage: [String: Any] = [
             "type": "text",
@@ -130,7 +139,7 @@ extension StreamingSession {
         ]
         
         let message: [String: Any] = [
-            "content": [textMessage, imageMessage],
+            "content": [textMessage] + imageMessages,
             "role": "user"
         ]
         
@@ -139,15 +148,16 @@ extension StreamingSession {
         let payload: [String: Any] = [
             "model": "gpt-4-vision-preview",
             "messages": messages,
-            "max_tokens": 300
+            "max_tokens": 2000,
+            "stream": true
         ]
         
         return try? JSONSerialization.data(withJSONObject: payload)
     }
     
     // Function to start the streaming session with an image and a question
-    func start(with image: UIImage, question: String, apiKey: String) {
-        guard let payload = createRequestPayload(with: image, question: question) else {
+    func start(with images: [UIImage], question: String, apiKey: String) {
+        guard let payload = createRequestPayload(with: images, question: question) else {
             onProcessingError?(self, StreamingError.unknownContent)
             return
         }
@@ -164,28 +174,31 @@ extension StreamingSession {
     }
 }
 
-func callImageChat() {
-    let image = UIImage(named: "CalcLimit")! // Replace with your actual UIImage
-    let question = "Solve the equation"
+func callImageChat(images: [UIImage], question: String) async -> AsyncThrowingStream<ChatStreamResult, Error> {
+    print(images, question)
+    
     let apiKey = OPEN_AI_KEY
 
     let urlRequest = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!) // Replace with the actual URL
-    let streamingSession = StreamingSession<ChatResult>(urlRequest: urlRequest)
+    let streamingSession = StreamingSession<ChatStreamResult>(urlRequest: urlRequest)
+    
+    return AsyncThrowingStream { continuation in
+        streamingSession.onReceiveContent = { session, result in
+            continuation.yield(result)
+        }
 
-    streamingSession.onReceiveContent = { session, result in
-        print("streaming result", result)
-        print(result.choices.first?.message)
+        streamingSession.onProcessingError = { session, error in
+            print("streaming error", error)
+            continuation.finish(throwing: error)
+        }
+
+        streamingSession.onComplete = { session, error in
+            print("streaming completed", error)
+            continuation.finish()
+        }
+
+        streamingSession.start(with: images, question: question, apiKey: apiKey)
     }
-
-    streamingSession.onProcessingError = { session, error in
-        print("streaming error", error)
-    }
-
-    streamingSession.onComplete = { session, error in
-        print("streaming completed", error)
-    }
-
-    streamingSession.start(with: image, question: question, apiKey: apiKey)
 }
 
 final class JSONRequest<ResultType> {

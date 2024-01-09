@@ -394,7 +394,7 @@ struct VisionExampleView: View {
         ChatExampleView(documents: [
             .init(name: "Invite.jpg", imageName: "Invite")
         ], userMessage: "Add this to my calendar") {
-            EventsMessageView(message:
+            NewEventMessageView(message:
                 Message(record: .init(
                     chatId: "",
                     createdAt: .now,
@@ -407,7 +407,7 @@ struct VisionExampleView: View {
                     }
                     """,
                     role: .function,
-                    messageType: .events)
+                    messageType: .newEvents)
                 )
             )
         }

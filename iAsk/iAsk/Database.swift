@@ -201,7 +201,10 @@ struct MessageRecord: BlackbirdModel, Codable {
         case message = "msg"
         
         // present a editable events to user
-        case events = "events"
+        case newEvents = "events"
+        
+        // present a users calendar to them
+        case calendar = "calendar"
     }
 }
 

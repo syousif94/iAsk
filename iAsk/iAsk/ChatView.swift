@@ -19,6 +19,7 @@ import AlertToast
 import NanoID
 import SwiftDate
 import Highlightr
+import EventKit
 
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
@@ -350,7 +351,10 @@ struct ChatView: View {
                 // MARK: TIPS VIEW
                 
                 TipsView()
+                    .frame(maxWidth: .infinity)
                     .opacity(keyboardObserver.isKeyboardVisible ? 0 : 1)
+                    .animation(.linear, value: keyboardObserver.isKeyboardVisible)
+                    .animation(nil, value: chat.isRecording)
                 
                 // MARK: INPUT BAR
                 
@@ -728,7 +732,9 @@ struct MessageView: View {
             functionType == .sms ||
             functionType == .readFiles ||
             functionType == .search ||
-            functionType == .getUserLocation
+            functionType == .getUserLocation ||
+            functionType == .parseEquations ||
+            functionType == .getCalendar
         )
     }
     
@@ -743,7 +749,7 @@ struct MessageView: View {
             }
             
             if functionType == .createCalendarEvent {
-                EventsMessageView(message: message)
+                NewEventMessageView(message: message)
             }
             
             if functionType == .search {
@@ -752,6 +758,14 @@ struct MessageView: View {
             
             if functionType == .getUserLocation {
                 LocatingMessageView(message: message)
+            }
+            
+            if functionType == .parseEquations {
+                MathOCRMessageView(message: message)
+            }
+            
+            if functionType == .getCalendar {
+                EventsMessageView(message: message)
             }
         }
         if message.record.messageType == .select {
@@ -764,7 +778,6 @@ struct MessageView: View {
         if message.record.role == .user && message.record.messageType == .text {
             UserMessageView(messageId: message.record.id, transcript: $message.content, answering: $answering, isFocused: _isFocused)
                 .onChange(of: message.answering, { oldValue, newValue in
-                    print("answering changed", newValue)
                     self.answering = newValue
                 })
         }
@@ -946,6 +959,53 @@ struct LocatingMessageView: View {
     }
 }
 
+struct MathOCRMessageView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
+    var message: Message
+    
+    @State var answering: Bool = true
+    
+    var searchingText = "Reading Equations"
+    
+    
+    var body: some View {
+        HStack {
+            if answering {
+                ProgressView()
+                    .tint(.white)
+                    .padding()
+                
+                Text(searchingText)
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+                
+            }
+            else {
+                Image(systemName: "checkmark")
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding()
+                Text("Read Equations")
+                    .foregroundStyle(.white)
+                    .padding(.vertical)
+                    .padding(.trailing)
+                
+            }
+        }
+        .background(.blue)
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .padding(.bottom)
+        .onReceive(message.$answering){ newValue in
+            answering = newValue
+        }
+    }
+}
+
+
 struct SearchingMessageView: View {
     @Environment(\.colorScheme) var colorScheme
     
@@ -1010,6 +1070,148 @@ struct SearchingMessageView: View {
 }
 
 struct EventsMessageView: View {
+    var message: Message
+    
+    @State var events: SortedEvents = SortedEvents(remindersWithoutDueDates: [], groupedByYearMonth: [])
+    
+    @State private var eventId: String?
+    @State private var showingEventEditView = false
+    @State var showMissingEventAlert = false
+    
+    func getEvents() async {
+        
+        let decoder = JSONDecoder()
+        
+        let json = try? decoder.decode(GetCalendarArgs.self, from: message.content.data(using: .utf8)!)
+        
+        async let events = Events.shared.getEvents(startDate: json?.startDate, endDate: json?.endDate)
+        async let reminders = Events.shared.getReminders()
+        
+        let grouped = groupAndSortEventsAndReminders(events: await events, reminders: await reminders)
+        
+        DispatchQueue.main.async {
+            self.events = grouped
+        }
+    }
+    
+    func getInterval(start: Date, end: Date) -> String {
+        return start.timeIntervalSince(end).toString {
+            $0.maximumUnitCount = 4
+            $0.allowedUnits = [.hour, .minute]
+            $0.collapsesLargestUnit = true
+            $0.unitsStyle = .short
+        }
+    }
+    
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: 20) {
+            ForEach(events.remindersWithoutDueDates, id: \.self) { reminder in
+                HStack {
+                    Text(reminder.title)
+                    Spacer()
+                    Text("4pm")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            ForEach(events.groupedByYearMonth, id: \.self) { monthEvents in
+                HStack {
+                    Rectangle().fill(.gray).frame(height: 1)
+                    Text("\(monthEvents.month) \(monthEvents.year)".toDate("M yyyy")?.toFormat("MMM yyyy") ?? "")
+                        .font(.caption)
+                    Rectangle().fill(.gray).frame(height: 1)
+                }
+                .frame(maxWidth: .infinity)
+                
+                ForEach(monthEvents.dailyEvents, id: \.self) { events in
+                    LazyVStack(alignment: .leading) {
+                        HStack(alignment: .top) {
+                            VStack {
+                                Text(events.date.toFormat("EEE"))
+                                Text(events.date.toFormat("d"))
+                            }
+                            .padding(.top, 4)
+                            .frame(width: 60)
+                            VStack(alignment: .leading) {
+                                ForEach(events.reminders, id: \.self) { reminder in
+                                    HStack {
+                                        Text(reminder.title)
+                                        Spacer()
+                                        Text("4pm")
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                                ForEach(Array(events.events.enumerated()), id: \.1) { (index, event) in
+                                    VStack(alignment: .leading) {
+                                        if !event.isAllDay, index > 0 {
+                                            HStack {
+                                                Rectangle().fill(.gray).frame(height: 1)
+                                                Text(getInterval(start: event.startDate, end: events.events[index - 1].endDate))
+                                                    .font(.caption)
+                                                Rectangle().fill(.gray).frame(height: 1)
+                                            }
+                                            .padding(.horizontal)
+                                            .frame(maxWidth: .infinity)
+                                        }
+                                        HStack {
+                                            VStack(alignment: .leading) {
+                                                Text(event.title)
+                                                    .foregroundColor(Color.black.opacity(0.7))
+                                                    .font(.headline)
+                                                    .fontWeight(.bold)
+                                                if let location = event.location {
+                                                    Text(location)
+                                                        .foregroundColor(Color.black.opacity(0.7))
+                                                }
+                                                if !event.isAllDay {
+                                                    Text("\(event.startDate.in(region: .current).toFormat("h:mma")) - \(event.endDate.in(region: .current).toFormat("h:mma"))")
+                                                        .foregroundColor(Color.black.opacity(0.7))
+                                                }
+                                            }
+                                            Spacer()
+                                        }
+                                        .padding()
+                                        .frame(maxWidth: .infinity)
+                                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: event.isAllDay ? "#fbe6d1" : "#e0f5d6", alpha: 1)))
+                                        .onTapGesture {
+                                            if let identifier = event.eventIdentifier {
+                                                eventId = identifier
+                                                showingEventEditView = true
+                                                
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        
+                    }
+                    
+                }
+            }
+            
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 20)
+        .sheet(isPresented: $showingEventEditView) {
+                    EventEditView(eventId: $eventId) {
+
+                    }
+                }
+        .onReceive(message.$answering) { answering in
+            
+            
+            if !answering {
+                print("loading events")
+                Task {
+                    await self.getEvents()
+                }
+            }
+        }
+    }
+}
+
+struct NewEventMessageView: View {
     
     var message: Message
     

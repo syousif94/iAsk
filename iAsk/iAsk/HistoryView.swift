@@ -190,8 +190,10 @@ struct HistoryListItem: View {
                     }
                     else if message.record.isFunctionCall {
                         switch message.functionType {
+                        case .getCalendar:
+                            EventsMessageView(message: message)
                         case .createCalendarEvent:
-                            EventsMessageView(message: message, answering: message.answering)
+                            NewEventMessageView(message: message, answering: message.answering)
                         default:
                             EmptyView()
                         }

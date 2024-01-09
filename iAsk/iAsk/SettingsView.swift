@@ -62,7 +62,7 @@ class SettingsViewModel: ObservableObject {
                 return record.createdAt.in(region: .current).toFormat("M/d")
             })
             
-            for i in 0...7 {
+            for i in 0...29 {
                 let date = (now.in(region: .current) - i.days).toFormat("M/d")
                 stats.append(Stats(date: date, questions: groups?[date]?.count ?? 0, model: index == 1 ? .gpt3 : .gpt4))
             }
@@ -119,9 +119,10 @@ struct SettingsView: View {
                             .foregroundStyle(by: .value("Model", stat.model))
                         }
                     }
+                    .chartXAxis(.hidden)
                     .chartForegroundStyleScale([
 //                        SettingsViewModel.Stats.Model.gpt3.rawValue: .green,
-                        SettingsViewModel.Stats.Model.gpt4.rawValue: .orange
+                        SettingsViewModel.Stats.Model.gpt4.rawValue: .blue
                     ])
                     .padding(.vertical, 8)
 //                    HStack {

@@ -480,17 +480,13 @@ class ChatViewModel: ObservableObject {
     
     func endGenerating(userMessage: Message?) {
         if let message = userMessage {
-            DispatchQueue.main.async {
-                userMessage?.answering = false
-            }
+            userMessage?.answering = false
             return
         }
         else {
             let activeMessages = self.messages.filter { $0.answering }
-            DispatchQueue.main.async {
-                for message in activeMessages {
-                    message.answering = false
-                }
+            for message in activeMessages {
+                message.answering = false
             }
         }
     }
@@ -633,7 +629,7 @@ class ChatViewModel: ObservableObject {
         else {
             
             lastUserMessage = messages.reversed().first(where: { $0.record.role == .user })
-            
+
             chatMessages.append(contentsOf: messages.compactMap { $0.ai })
             
             let aiMessageRecord = MessageRecord(
@@ -674,7 +670,7 @@ class ChatViewModel: ObservableObject {
         var cancellables = Set<AnyCancellable>()
         
         let throttledPublisher = textPublisher
-            .throttle(for: .milliseconds(100), scheduler: RunLoop.main, latest: true)
+            .throttle(for: .milliseconds(16), scheduler: RunLoop.main, latest: true)
         
         guard let detector = TextDetector() else {
             return
@@ -1153,14 +1149,129 @@ class ChatViewModel: ObservableObject {
             case .getCalendar:
                 do {
                     let args = try call.toArgs(GetCalendarArgs.self)
+                    
                 }
                 catch {
                     print("Failed to decode JSON: \(error)")
-                    self.endGenerating(userMessage: lastUserMessage)
+                    
                 }
+                aiMessage.answering = false
+                Task {
+                    await aiMessage.save()
+                }
+                self.endGenerating(userMessage: lastUserMessage)
             case .editCalendarEvent:
                 break
+            case .parseEquations:
+                print("parsing equations")
+                
+                guard let args = try? call.toArgs(MathOCRArgs.self) else {
+                    return
+                }
+                let files = args.files
+                let images = files.compactMap { filePath -> UIImage? in
+                    
+                    var filePath = filePath
+                    
+                    if filePath.contains("file_path:") {
+                        filePath = filePath.replacingOccurrences(of: "file_path:", with: "")
+                    }
+                    if filePath.contains("/"), let lastComponent = filePath.split(separator: "/").last {
+                        filePath = String(lastComponent)
+                    }
+                    
+                    filePath = filePath.removingPercentEncoding ?? filePath
+                    
+                    filePath = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    guard let attachment = self.latestAttachments.first(where: { a in
+
+                        if a.dataRecord.dataType == .url, let url = a.url, let path = getDownloadURL(for: url) {
+                            let name = path.lastPathComponent
+                            let isTheOne = name == filePath
+
+                            return isTheOne
+                        }
+
+                        let filenameMatch = a.dataRecord.name == filePath && a.hasText
+                        if filenameMatch {
+                            return true
+                        }
+
+                        return false
+                    }) else {
+                        return nil
+                    }
+                    
+                    return UIImage(contentsOfFile: attachment.localURL!.path)
+                }
+                
+                if !images.isEmpty, let question = lastUserMessage?.content {
+                    let textPublisher = PassthroughSubject<String, Never>()
+                    
+                    var cancellables = Set<AnyCancellable>()
+                    
+                    let throttledPublisher = textPublisher
+                        .throttle(for: .milliseconds(16), scheduler: RunLoop.main, latest: true)
+                    
+                    let nextMessage = Message(record: .init(chatId: self.id, createdAt: Date(), content:  "", role: .assistant, messageType: .text))
+                    self.messages.append(nextMessage)
+                    
+                    throttledPublisher
+                        .receive(on: DispatchQueue.main)
+                        .sink { text in
+                            
+                            let replacedText = latexToMarkdown.convertLatexToMarkdown(in: text)
+                            
+                            let mutableText = detector.replaceAddresses(in: replacedText)
+
+                            nextMessage.content = mutableText as String
+                            
+                            let impactFeedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+                            impactFeedbackGenerator.impactOccurred()
+                        }
+                        .store(in: &cancellables)
+                    
+                    
+                    
+                    var answer = ""
+                    
+                    do {
+                        for try await result in await callImageChat(images: images, question: "\(question)\nRemember, LaTeX must start with `\\[` or `\\(`, not `[ ` or `( `.") {
+                            
+                            if let text = result.choices[0].delta.content {
+                                if aiMessage.answering {
+                                    aiMessage.answering = false
+                                }
+                                
+                                answer += text
+                                textPublisher.send(answer)
+                                if speakAnswer {
+                                    sentenceSplitter.handleStreamChunk(text)
+                                }
+                            }
+                        }
+                    }
+                    catch {
+                        
+                    }
+                    
+                    print("math answer", answer)
+                    
+                    let latexReplaced = latexToMarkdown.convertLatexToMarkdown(in: answer)
+                    let mutableText = detector.replaceAddresses(in: latexReplaced)
+                    nextMessage.content = mutableText as String
+                    Task {
+                        async let saveAImessage: () = aiMessage.save()
+                        async let saveNextMessage: () = nextMessage.save()
+                        await saveAImessage
+                        await saveNextMessage
+                    }
+                }
+                
+                self.endGenerating(userMessage: lastUserMessage)
             }
+        
             
         }
         else {

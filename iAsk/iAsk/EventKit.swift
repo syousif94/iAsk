@@ -46,11 +46,16 @@ class Events {
             return false
         }
     }
+    
+    static let dateFormat = "yyyy-MM-dd HH:mm"
+    
+    static func getDate(_ str: String?) -> Date? {
+        return str?.toDate(Self.dateFormat, region: .current)?.date
+    }
 
     func createEvent(args: CreateCalendarEventArgs) -> EKEvent? {
-        let dateFormat = "yyyy-MM-dd HH:mm"
-        guard let startDate = args.startDate.toDate(dateFormat, region: .current)?.date,
-              let endDate = args.endDate.toDate(dateFormat, region: .current)?.date else {
+        guard let startDate = Self.getDate(args.startDate),
+              let endDate = Self.getDate(args.endDate) else {
             print("Failed to parse date")
             return nil
         }
@@ -136,19 +141,33 @@ class Events {
         return reminder
     }
     
-    func getUpcomingEvents() async -> [EKEvent] {
+    func getEvents(startDate: String? = nil, endDate: String? = nil) async -> [EKEvent] {
         guard let access = try? await requestAccess(for: .event), access else {
             return []
         }
         
-        let startDate = Date().dateAtStartOf(.hour)
-        let endDate = Calendar.current.date(byAdding: .year, value: 1, to: startDate)
+        let start = Self.getDate(startDate)?.dateAtStartOf(.hour) ?? Date().dateAtStartOf(.hour)
+        let end = Self.getDate(endDate) ?? start.dateAtEndOf(.month)
 
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate!, calendars: nil)
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
 
         let events = eventStore.events(matching: predicate)
         
-        return []
+        return events
+    }
+    
+    func getReminders() async -> [EKReminder] {
+        guard let access = try? await requestAccess(for: .reminder), access else {
+            return []
+        }
+        
+        let predicate = eventStore.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)
+        
+        return await withCheckedContinuation { continuation in
+            eventStore.fetchReminders(matching: predicate) { reminders in
+                continuation.resume(returning: reminders ?? [])
+            }
+        }
     }
 }
 
@@ -194,4 +213,73 @@ struct EventEditView: UIViewControllerRepresentable {
             }
         }
     }
+}
+
+struct SortedEvents {
+    let remindersWithoutDueDates: [EKReminder]
+    let groupedByYearMonth: [YearMonthEvents]
+}
+
+struct YearMonthEvents: Hashable {
+    let year: Int
+    let month: Int
+    let dailyEvents: [DailyEvents]
+}
+
+struct DailyEvents: Hashable {
+    let date: Date
+    let reminders: [EKReminder]
+    let events: [EKEvent]
+}
+
+func groupAndSortEventsAndReminders(events: [EKEvent], reminders: [EKReminder]) -> SortedEvents {
+    // Filter reminders without due dates
+    let remindersWithoutDueDates = reminders.filter { $0.dueDateComponents == nil }
+    
+    let calendar = Calendar.current
+    
+    // Group events by year, month, and day
+    let groupedEvents = Dictionary(grouping: events) { (event) -> DateComponents in
+        return calendar.dateComponents([.year, .month, .day], from: event.startDate)
+    }
+    
+    // Group reminders by year, month, and day
+    let groupedRemindersWithDueDates = Dictionary(grouping: reminders.filter { $0.dueDateComponents != nil }) { (reminder) -> DateComponents in
+        return reminder.dueDateComponents!
+    }
+    
+    // Combine event and reminder groups into DailyEvents, grouped by year and month
+    var allDates = Set(groupedEvents.keys).union(groupedRemindersWithDueDates.keys)
+    var yearlyMonthlyEvents: [Int: [Int: [DailyEvents]]] = [:]
+    
+    for dateComponents in allDates {
+        guard let date = calendar.date(from: dateComponents) else { continue }
+        let eventsForDay = groupedEvents[dateComponents]?.sorted(by: { $0.startDate < $1.startDate }) ?? []
+        let remindersForDay = groupedRemindersWithDueDates[dateComponents]?.sorted(by: {
+            if let dueDate1 = $0.dueDateComponents, let dueDate2 = $1.dueDateComponents,
+               let date1 = calendar.date(from: dueDate1), let date2 = calendar.date(from: dueDate2) {
+                return date1 < date2
+            }
+            return false
+        }) ?? []
+        let dailyEvent = DailyEvents(date: date, reminders: remindersForDay, events: eventsForDay)
+        
+        let year = dateComponents.year!
+        let month = dateComponents.month!
+        yearlyMonthlyEvents[year, default: [:]][month, default: []].append(dailyEvent)
+    }
+    
+    // Sort DailyEvents within each month and year
+    for (year, monthlyEvents) in yearlyMonthlyEvents {
+        for (month, dailyEvents) in monthlyEvents {
+            yearlyMonthlyEvents[year]?[month] = dailyEvents.sorted { $0.date < $1.date }
+        }
+    }
+    
+    // Create YearMonthEvents array and sort by year and month
+    let sortedYearlyMonthlyEvents = yearlyMonthlyEvents.flatMap { year, months in
+        months.sorted { $0.key < $1.key }.map { YearMonthEvents(year: year, month: $0.key, dailyEvents: $0.value) }
+    }.sorted { ($0.year, $0.month) < ($1.year, $1.month) }
+    
+    return SortedEvents(remindersWithoutDueDates: remindersWithoutDueDates, groupedByYearMonth: sortedYearlyMonthlyEvents)
 }

@@ -79,6 +79,20 @@ struct AddButton<Content: View>: View {
             Divider()
             
             Button(action: {
+                showDocumentsNotification.send(true)
+                chat.menuShown = false
+            }) {
+                Label("Documents", systemImage: "doc.on.doc")
+            }
+            
+            Button(action: {
+                showPhotoPickerNotification.send(true)
+                chat.menuShown = false
+            }) {
+                Label("Photos", systemImage: "photo.on.rectangle.angled")
+            }
+            
+            Button(action: {
                 showWebNotification.send(true)
                 chat.menuShown = false
             }) {
@@ -95,19 +109,9 @@ struct AddButton<Content: View>: View {
                 }
             }
             
-            Button(action: {
-                showPhotoPickerNotification.send(true)
-                chat.menuShown = false
-            }) {
-                Label("Photos", systemImage: "photo.on.rectangle.angled")
-            }
             
-            Button(action: {
-                showDocumentsNotification.send(true)
-                chat.menuShown = false
-            }) {
-                Label("Documents", systemImage: "doc.on.doc")
-            }
+            
+            
             
             
 //                            Button(action: {

@@ -237,7 +237,7 @@ class SpeechQueue: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         
         currentSentence = sentence
         let utterance = AVSpeechUtterance(string: sentence)
-        utterance.rate = utterance.rate * 1.1
+        utterance.rate = utterance.rate * 1.05
         
         Self.speechSynthesizer.speak(utterance)
     }

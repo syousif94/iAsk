@@ -45,14 +45,14 @@ struct TipsView: View {
     
     let tips: [Tip] = Application.isCatalyst ? [
         Tip(texts: Text("Press ") + Text("⌘ + enter").foregroundStyle(.green) + Text(" to submit a question")),
-        Tip(texts: Text("Press ") + Text("⌘ + n").foregroundStyle(.orange) + Text(" for a new chat")),
+        Tip(texts: Text("Press ") + Text("⌘ + n").foregroundStyle(.orange) + Text(" to start new chats")),
         Tip(texts: Text("Press ") + Text("⌘ + o").foregroundStyle(.blue) + Text(" or drop files anywhere in this window to add them")),
         Tip(texts: Text("Click  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  for settings and more")),
         Tip(texts: Text("Scroll  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
         Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app"))
         
     ] : [
-        Tip(texts: Text("Tap  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  to import documents and manage settings")),
+        Tip(texts: Text("Tap  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  to import documents and start new chats")),
         Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app")),
         Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "mic.fill")).foregroundStyle(.blue) + Text("  to speak your question")),
@@ -103,6 +103,7 @@ struct TipsView: View {
                     .frame(height: 110)
                 }
                 .padding(.top)
+                .animation(nil)
             }
             
         }

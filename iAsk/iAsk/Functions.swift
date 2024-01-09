@@ -52,6 +52,7 @@ enum FunctionCall: String, Codable {
     case createCalendarEvent = "create_calendar_event"
     case getCalendar = "get_calendar"
     case editCalendarEvent = "edit_calendar_event"
+    case parseEquations = "math_ocr"
 }
 
 struct WriteFilesArgs: Codable {
@@ -69,6 +70,9 @@ struct ReadFilesArgs: Codable {
     let editsRequestedFor: [String]?
 }
 
+struct MathOCRArgs: Codable {
+    let files: [String]
+}
 
 struct ConvertMediaArgs: Codable {
     struct ItemArgs: Codable {
@@ -114,7 +118,9 @@ struct SummarizeDocumentsArgs: Codable {
 }
 
 struct GetCalendarArgs: Codable {
-
+    let startDate: String?
+    let endDate: String?
+    let titleFilter: String?
 }
 
 struct CreateCalendarEventArgs: Codable {
@@ -209,12 +215,16 @@ func getFunctions() -> [ChatFunctionDeclaration] {
             )
       ),
       ChatFunctionDeclaration(
-          name: "get_calendar_events",
-          description: "Get the user's calendar",
+          name: "get_calendar",
+          description: "Get the user's calendar, including events and reminders",
           parameters:
             JSONSchema(
               type: .object,
-              properties: [:],
+              properties: [
+                "startDate": .init(type: .string, description: "The earliest calendar events to load in yyyy-MM-dd HH:mm, e.g. 2010-05-20 15:30. Leave blank for an hour before the current time."),
+                "endDate": .init(type: .string, description: "The latest calendar events to load in yyyy-MM-dd HH:mm, e.g. 2010-05-20 16:30. Leave blank for the next end of month after the start date"),
+                "textFilter": .init(type: .string, description: "Filter out the events by search terms. Use this if the user is looking for a particular event or reminder.")
+              ],
               required: []
             )
       ),
@@ -264,6 +274,22 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               type: .object,
               properties: [:],
               required: []
+            )
+      ),
+      ChatFunctionDeclaration(
+          name: "math_ocr",
+          description: "You must use this to handle math equations in photos. Photos are file_paths that end in .heic, .jpeg, .jpg, or .png only. Do not use this for documents.",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "files": .init(
+                    type: .array,
+                    items: JSONSchema.Items(
+                        type: .string
+                ))
+              ],
+              required: ["files"]
             )
       ),
 //      ChatFunctionDeclaration(

@@ -834,7 +834,7 @@ struct MessageView: View {
 struct LocalImageProvider: ImageProvider {
     public func makeImage(url: URL?) -> some View {
         if let url = url, let image = UIImage(contentsOfFile: url.path(percentEncoded: true)) {
-            Image(uiImage: image)
+            Image(uiImage: image.withTintColor(.imageTint).withRenderingMode(.alwaysTemplate))
         }
       }
 }
@@ -842,7 +842,7 @@ struct LocalImageProvider: ImageProvider {
 struct LocalInlineImageProvider: InlineImageProvider {
     public func image(with url: URL, label: String) async throws -> Image {
         if let image = UIImage(contentsOfFile: url.path(percentEncoded: true)) {
-            Image(uiImage: image)
+            Image(uiImage: image.withTintColor(.imageTint).withRenderingMode(.alwaysTemplate))
         }
         else {
             Image(uiImage: UIImage())
@@ -1627,11 +1627,11 @@ struct DataMessageView: View {
 
                         height = proxy.size.height
                         
-                        let perRow = floor(proxy.size.width / (140 + 10))
+                        let perRow = floor(proxy.size.width / (attachmentSideLength + 10))
                         
                         let rows = ceil(CGFloat(newValue.count) / perRow)
                         
-                        let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                        let idealHeight = (attachmentSideLength * attachmentHeightRatio) * rows + (10 * (rows - 1))
                         
                         if height == nil || height! < idealHeight {
                             height = idealHeight
@@ -1645,11 +1645,11 @@ struct DataMessageView: View {
 
                         height = proxy.size.height
                         
-                        let perRow = floor(proxy.size.width / (140 + 10))
+                        let perRow = floor(proxy.size.width / (attachmentSideLength + 10))
                         
                         let rows = ceil(CGFloat(attachments.count) / perRow)
 
-                        let idealHeight = (140 * 1.2) * rows + (10 * (rows - 1))
+                        let idealHeight = (attachmentSideLength * attachmentHeightRatio) * rows + (10 * (rows - 1))
 
                         
                         if height == nil || height! < idealHeight {
@@ -1659,7 +1659,7 @@ struct DataMessageView: View {
                     }
                 }
             }
-            .frame(minHeight: height ?? 160, maxHeight: .infinity)
+            .frame(minHeight: height ?? attachmentSideLength * attachmentHeightRatio, maxHeight: .infinity)
         }
     }
 }
@@ -1688,7 +1688,7 @@ struct AttachmentPreview: View {
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: sideLength, height: sideLength * 1.2)
+                        .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                         .clipped()
                 }
             }
@@ -1696,7 +1696,7 @@ struct AttachmentPreview: View {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: sideLength, height: sideLength * 1.2)
+                    .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                     .clipped()
             }
             else if let url = attachment.url, url.pathExtension != "pdf", let text = extractText(url: url, dataType: attachment.dataRecord.dataType) {
@@ -1704,12 +1704,12 @@ struct AttachmentPreview: View {
                     .font(
                         .system(size: 5)
                     )
-                    .frame(width: sideLength, height: sideLength * 1.2)
+                    .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                     .clipped()
             }
             else if generating {
                 ProgressView()
-                    .frame(width: sideLength, height: sideLength * 1.2)
+                    .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
             }
         }
         .onReceive(attachment.$generatingPreview) { newValue in
@@ -1718,12 +1718,15 @@ struct AttachmentPreview: View {
     }
 }
 
+let attachmentSideLength: CGFloat = 220
+let attachmentHeightRatio = 0.7
+
 struct AttachmentView: View {
     let message: Message
     @Binding var attachment: Attachment
     @State var status = ""
     
-    @State var sideLength: CGFloat = 140
+    @State var sideLength: CGFloat = attachmentSideLength
 
     init(message: Message, attachment: Binding<Attachment>) {
         self.message = message
@@ -1742,7 +1745,7 @@ struct AttachmentView: View {
     var innerBody: some View {
         ZStack {
             AttachmentPreview(message: message, attachment: $attachment, sideLength: $sideLength)
-                .frame(width: sideLength, height: sideLength * 1.2)
+                .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                 
             
             VStack(alignment: .leading) {
@@ -1765,9 +1768,8 @@ struct AttachmentView: View {
                     }
                     HStack {
                         Text(fileName)
-                            .font(.caption)
                             .fontWeight(.bold)
-                            .padding(.bottom, 4)
+                            .padding(.bottom, 8)
                             .foregroundStyle(.white)
                             .multilineTextAlignment(.leading)
                             .lineLimit(3)
@@ -1776,8 +1778,8 @@ struct AttachmentView: View {
                     .frame(maxWidth: .infinity)
                     
                 }
-                .padding(.horizontal, 4)
-                .frame(width: sideLength, height: sideLength * 0.75)
+                .padding(.horizontal, 12)
+                .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                 .background(
                     LinearGradient(gradient: Gradient(colors: [Color(hex: "#000000", alpha: 0), Color(hex: "#000000", alpha: 0.7)]), startPoint: .top, endPoint: .bottom)
                 )
@@ -1785,10 +1787,10 @@ struct AttachmentView: View {
                     self.status = newValue
                 }
             }
-            .frame(width: sideLength, height: sideLength * 1.2)
+            .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
             
         }
-        .frame(width: sideLength, height: sideLength * 1.2)
+        .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
         .background(Color(hex: "#000000", alpha: 0.1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .clipped()

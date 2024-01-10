@@ -148,7 +148,7 @@ struct SubscriptionView: View {
                                 .scrollTargetBehavior(.viewAligned)
                                 .frame(maxWidth: maxWidth)
                                 
-                                Text("Subscribe to get unlimited access.\nNon subscribers are limited to 15 questions a month and may bankrupt Sammy.")
+                                Text("Subscribe to get unlimited access.\nNon subscribers are limited to 5 questions per 30 days.")
                                     .foregroundColor(.secondary)
                                     .padding(.top, 40)
                                     .padding(.horizontal)

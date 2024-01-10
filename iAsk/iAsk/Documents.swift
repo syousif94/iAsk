@@ -71,7 +71,7 @@ enum Disk {
 
 struct ImageCache {
     static let cacheDirectory: URL = {
-        let cachePaths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+        let cachePaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         return cachePaths[0].appendingPathComponent("iAsk/previews")
     }()
     
@@ -179,7 +179,7 @@ func getDownloadURL(for url: URL) -> URL? {
     if ext.isEmpty {
         ext = "html"
     }
-    return Disk.cache.getPath(for: "iAsk/downloads/\(url.hash).\(ext)")
+    return Disk.support.getPath(for: "iAsk/downloads/\(url.hash).\(ext)")
 }
 
 func download(url: URL) async throws {

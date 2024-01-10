@@ -1237,7 +1237,7 @@ class ChatViewModel: ObservableObject {
                     var answer = ""
                     
                     do {
-                        for try await result in await callImageChat(images: images, question: "\(question)\nRemember, LaTeX must start with `\\[` or `\\(`, not `[ ` or `( `.") {
+                        for try await result in await callImageChat(images: images, question: "\(question)\nRemember, LaTeX must start with `\\[` or `\\(`, not `[ `, `( `, or `$ `.") {
                             
                             if let text = result.choices[0].delta.content {
                                 if aiMessage.answering {
@@ -1297,7 +1297,7 @@ class ChatViewModel: ObservableObject {
         self.resetSpeechToText()
         
         if store.purchasedSubscriptions.first == nil,
-           settings.gpt4Questions >= 15 {
+           settings.gpt4Questions >= 5 {
             showLimitExceededAlert = true
             return
         }

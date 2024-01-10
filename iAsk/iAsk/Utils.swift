@@ -48,6 +48,24 @@ extension UIColor {
             return color
         }
     }
+    
+    static var imageTint: UIColor {
+        let color = UIColor.black
+        if #available(iOS 12.0, *) {
+            let currentStyle = UITraitCollection.current.userInterfaceStyle
+            switch currentStyle {
+            case .dark:
+                return UIColor.white // Or any other color for dark mode
+            case .light, .unspecified:
+                return color // Or any other color for light mode
+            @unknown default:
+                return color
+            }
+        } else {
+            // Fallback for earlier versions than iOS 12.0
+            return color
+        }
+    }
 }
 
 extension Color {

@@ -29,7 +29,7 @@ class LaTeXImageMarkdownConverter {
             for match in matches {
                 if let matchRange = Range(match.range, in: text) {
                     let equation = String(text[matchRange])
-                    if let _ = self.imageGenerator.image(from: equation) {
+                    if self.imageGenerator.image(from: equation) {
                         let fileURL = self.imageGenerator.cacheURL(for: equation)
                         let markdownImageLink = "![latex: \(LaTeXImageGenerator.extractEquation(from: equation))](\(fileURL.absoluteString.replacingOccurrences(of: "@\(Int(UIScreen.main.scale))x", with: "")))"
                         modifiedText = modifiedText.replacingOccurrences(of: equation, with: markdownImageLink)
@@ -45,17 +45,6 @@ class LaTeXImageMarkdownConverter {
 }
 
 class LaTeXImageGenerator {
-    private let cacheDirectory: URL
-    
-    init() {
-        // Get the URL for the caches directory
-        let fileManager = FileManager.default
-        if let cacheDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first {
-            self.cacheDirectory = cacheDir
-        } else {
-            fatalError("Unable to access caches directory.")
-        }
-    }
     
     func cacheURL(for latex: String) -> URL {
         // Use a simple hashing function to create a unique filename for each LaTeX string
@@ -81,17 +70,16 @@ class LaTeXImageGenerator {
         return markdown.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    func image(from latex: String) -> UIImage? {
+    func image(from latex: String) -> Bool {
         let fileURL = cacheURL(for: latex)
         
-        // Check if the image is already cached
-//        if let cachedImage = UIImage(contentsOfFile: fileURL.path) {
-//            return cachedImage
-//        }
+        if fileExists(at: fileURL) {
+            return true
+        }
         
         let text = Self.extractEquation(from: latex)
         
-        let mathImage = MTMathImage(latex: text, fontSize: 18, textColor: .label)
+        let mathImage = MTMathImage(latex: text, fontSize: 18, textColor: .black)
         mathImage.font = MTFontManager().termesFont(withSize: 18)
         mathImage.contentInsets = .init(top: 12, left: 4, bottom: 0, right: 4)
         
@@ -102,10 +90,10 @@ class LaTeXImageGenerator {
                 try imageData.write(to: fileURL)
             } catch {
                 print("Error saving image: \(error)")
-                return nil
+                return false
             }
         }
         
-        return image
+        return true
     }
 }

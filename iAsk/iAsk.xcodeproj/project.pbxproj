@@ -27,6 +27,10 @@
 		534B754E2AD498BB00C16026 /* EventKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754D2AD498BB00C16026 /* EventKit.swift */; };
 		534B75502AD4C1B400C16026 /* Vision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534B754F2AD4C1B400C16026 /* Vision.swift */; };
 		5353F6C32AF06E0A00B701FE /* StoreViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */; };
+		536066E42B4F5B40008E348E /* NewReminderMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 536066E32B4F5B40008E348E /* NewReminderMessageView.swift */; };
+		536066E72B4F5B8E008E348E /* NewContactMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 536066E62B4F5B8E008E348E /* NewContactMessageView.swift */; };
+		536066E92B4FCF74008E348E /* EventsMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 536066E82B4FCF74008E348E /* EventsMessageView.swift */; };
+		536066EC2B55B6C5008E348E /* SwiftHTMLtoMarkdown in Frameworks */ = {isa = PBXBuildFile; productRef = 536066EB2B55B6C5008E348E /* SwiftHTMLtoMarkdown */; };
 		5367514A2B38007D00572E07 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = 536751492B38007D00572E07 /* Highlightr */; };
 		537865F72AE381AA0028FFDE /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F62AE381AA0028FFDE /* CameraView.swift */; };
 		537865F92AE381BE0028FFDE /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537865F82AE381BE0028FFDE /* CameraViewModel.swift */; };
@@ -133,6 +137,9 @@
 		534B754D2AD498BB00C16026 /* EventKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKit.swift; sourceTree = "<group>"; };
 		534B754F2AD4C1B400C16026 /* Vision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vision.swift; sourceTree = "<group>"; };
 		5353F6C22AF06E0A00B701FE /* StoreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreViewModel.swift; sourceTree = "<group>"; };
+		536066E32B4F5B40008E348E /* NewReminderMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewReminderMessageView.swift; sourceTree = "<group>"; };
+		536066E62B4F5B8E008E348E /* NewContactMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewContactMessageView.swift; sourceTree = "<group>"; };
+		536066E82B4FCF74008E348E /* EventsMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsMessageView.swift; sourceTree = "<group>"; };
 		537865F62AE381AA0028FFDE /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		537865F82AE381BE0028FFDE /* CameraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraViewModel.swift; sourceTree = "<group>"; };
 		537F66542B3FAEF400BD29B5 /* OfficeDocs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeDocs.swift; sourceTree = "<group>"; };
@@ -174,6 +181,7 @@
 				538106262AA07432007F759E /* FFmpeg-Kit in Frameworks */,
 				5328865C2AC64EEC00B7FB92 /* AlertToast in Frameworks */,
 				5384D6182A82F72C00BA85A1 /* NanoID in Frameworks */,
+				536066EC2B55B6C5008E348E /* SwiftHTMLtoMarkdown in Frameworks */,
 				5381063D2AAFF2B2007F759E /* ZIPFoundation in Frameworks */,
 				533AFB2C2AD75D2400B24FE3 /* WrappingHStack in Frameworks */,
 				5384D6052A81DE0B00BA85A1 /* GPTEncoder in Frameworks */,
@@ -240,6 +248,7 @@
 				5384D60A2A82F44200BA85A1 /* HistoryView.swift */,
 				5384D6382A8E124100BA85A1 /* HistoryViewModel.swift */,
 				5384D60C2A82F44A00BA85A1 /* ChatView.swift */,
+				536066E52B4F5B4A008E348E /* MessageViews */,
 				538106322AA59285007F759E /* RecordButton.swift */,
 				532F313A2AC7C3260012D939 /* AddButton.swift */,
 				534A6B532AEB2EB200B8AB7A /* SettingsView.swift */,
@@ -287,6 +296,16 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
+		536066E52B4F5B4A008E348E /* MessageViews */ = {
+			isa = PBXGroup;
+			children = (
+				536066E32B4F5B40008E348E /* NewReminderMessageView.swift */,
+				536066E62B4F5B8E008E348E /* NewContactMessageView.swift */,
+				536066E82B4FCF74008E348E /* EventsMessageView.swift */,
+			);
+			path = MessageViews;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -330,6 +349,7 @@
 				536751492B38007D00572E07 /* Highlightr */,
 				537F66522B3FA3E900BD29B5 /* CoreXLSX */,
 				533E91D62B46288300A7BA6D /* SwiftMath */,
+				536066EB2B55B6C5008E348E /* SwiftHTMLtoMarkdown */,
 			);
 			productName = iAsk;
 			productReference = 530948CB2A81CC0300EC98F9 /* iAsk.app */;
@@ -402,6 +422,7 @@
 				536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */,
 				537F66512B3FA3E900BD29B5 /* XCRemoteSwiftPackageReference "CoreXLSX" */,
 				533E91D52B46288300A7BA6D /* XCRemoteSwiftPackageReference "SwiftMath" */,
+				536066EA2B55B6C5008E348E /* XCRemoteSwiftPackageReference "SwiftHTMLToMarkdown" */,
 			);
 			productRefGroup = 530948CC2A81CC0300EC98F9 /* Products */;
 			projectDirPath = "";
@@ -456,6 +477,7 @@
 				533AFB2E2ADA325C00B24FE3 /* BrowserViewModel.swift in Sources */,
 				5384D63D2A8EF2D300BA85A1 /* Location.swift in Sources */,
 				534B754E2AD498BB00C16026 /* EventKit.swift in Sources */,
+				536066E92B4FCF74008E348E /* EventsMessageView.swift in Sources */,
 				5384D6112A82F5BF00BA85A1 /* Browser.swift in Sources */,
 				532F313B2AC7C3260012D939 /* AddButton.swift in Sources */,
 				538106372AAA94FA007F759E /* Functions.swift in Sources */,
@@ -472,7 +494,9 @@
 				5384D60D2A82F44A00BA85A1 /* ChatView.swift in Sources */,
 				530948CF2A81CC0300EC98F9 /* AppDelegate.swift in Sources */,
 				530948D12A81CC0300EC98F9 /* SceneDelegate.swift in Sources */,
+				536066E42B4F5B40008E348E /* NewReminderMessageView.swift in Sources */,
 				5384D6242A82F8D800BA85A1 /* Database.swift in Sources */,
+				536066E72B4F5B8E008E348E /* NewContactMessageView.swift in Sources */,
 				5384D60F2A82F49F00BA85A1 /* Utils.swift in Sources */,
 				5353F6C32AF06E0A00B701FE /* StoreViewModel.swift in Sources */,
 				5384D6392A8E124100BA85A1 /* HistoryViewModel.swift in Sources */,
@@ -638,6 +662,7 @@
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iAsk/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Required for calendar based functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera for image to text functionality.";
@@ -655,12 +680,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = me.syousif.iAsk;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -680,6 +706,7 @@
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iAsk/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Required for calendar based functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera for image to text functionality.";
@@ -697,12 +724,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = me.syousif.iAsk;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -733,7 +761,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = me.syousif.iAsk.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -765,7 +795,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = me.syousif.iAsk.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -843,6 +875,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.4.0;
+			};
+		};
+		536066EA2B55B6C5008E348E /* XCRemoteSwiftPackageReference "SwiftHTMLToMarkdown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ActuallyTaylor/SwiftHTMLToMarkdown";
+			requirement = {
+				branch = main;
+				kind = branch;
 			};
 		};
 		536751482B38007D00572E07 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
@@ -1008,6 +1048,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 533E91D52B46288300A7BA6D /* XCRemoteSwiftPackageReference "SwiftMath" */;
 			productName = SwiftMath;
+		};
+		536066EB2B55B6C5008E348E /* SwiftHTMLtoMarkdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 536066EA2B55B6C5008E348E /* XCRemoteSwiftPackageReference "SwiftHTMLToMarkdown" */;
+			productName = SwiftHTMLtoMarkdown;
 		};
 		536751492B38007D00572E07 /* Highlightr */ = {
 			isa = XCSwiftPackageProductDependency;

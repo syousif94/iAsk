@@ -24,26 +24,9 @@ import EventKit
 struct ChatViewWrapper: View {
     let chat: ChatViewModel
     
-    @StateObject var alerts: AlertViewModel = AlertViewModel()
-    
     var body: some View {
         ChatView()
             .environmentObject(chat)
-            .environmentObject(alerts)
-            .toast(isPresenting: $alerts.show){
-                alerts.alertToast
-            }
-    }
-}
-
-class AlertViewModel: ObservableObject{
-    @Published var show = false
-    @Published var alertToast: AlertToast = AlertToast(type: .regular, title: "SOME TITLE") {
-        didSet{
-            withAnimation {
-                show.toggle()
-            }
-        }
     }
 }
 
@@ -152,8 +135,6 @@ let scrollMessagesList = NotificationPublisher<CGFloat>()
 
 struct ChatView: View {
     @EnvironmentObject var chat: ChatViewModel
-    
-    @EnvironmentObject var alerts: AlertViewModel
     
     @StateObject var keyboardObserver = KeyboardObserver()
     
@@ -353,7 +334,7 @@ struct ChatView: View {
                 TipsView()
                     .frame(maxWidth: .infinity)
                     .opacity(keyboardObserver.isKeyboardVisible ? 0 : 1)
-                    .animation(.linear, value: keyboardObserver.isKeyboardVisible)
+                    .animation(nil, value: keyboardObserver.isKeyboardVisible)
                     .animation(nil, value: chat.isRecording)
                 
                 // MARK: INPUT BAR
@@ -405,7 +386,7 @@ struct ChatView: View {
             .alert(isPresented: $chat.showLimitExceededAlert) {
                 Alert(
                     title: Text("Subscribe"),
-                    message: Text("You have exceeded the 30 day question limit. Please subscribe for unlimited usage."),
+                    message: Text("Please subscribe for unlimited usage. You can restore purchases from the settings."),
                     primaryButton: .cancel(Text("Subscribe"), action: {
                         Task {
                             try? await chat.store.purchase(chat.store.subscriptions.first!)
@@ -427,7 +408,7 @@ struct ChatView: View {
                                     language: CodeEditor.Language(rawValue: chat.codeLanguage),
                                     theme: colorScheme == .dark ? CodeEditor.ThemeName(rawValue: "monokai") : CodeEditor.ThemeName(rawValue: "xcode")
                                 )
-                                .frame(minWidth: geometry.size.width * 4, minHeight: geometry.size.height)
+                                .frame(minWidth: geometry.size.width * 2, maxWidth: .infinity, minHeight: geometry.size.height)
                             }
                             .frame(width: geometry.size.width, height: geometry.size.height)
                         }
@@ -437,7 +418,6 @@ struct ChatView: View {
                             Button("Copy") {
                                 let selectedCode = chat.presentedText
                                 copyToClipboard(text: selectedCode)
-                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                             }
                             Spacer()
                             Button("Done") {
@@ -629,7 +609,6 @@ struct MessageView: View {
     @Environment(\.colorScheme) var colorScheme
 
     @EnvironmentObject var chat: ChatViewModel
-    @EnvironmentObject var alerts: AlertViewModel
     
     @State var functionType: FunctionCall?
     
@@ -652,7 +631,6 @@ struct MessageView: View {
                         Button("Copy Table", role: .none) {
                             let text = configuration.content.renderMarkdown()
                             copyToClipboard(text: text)
-                            alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                         }
                     }
             })
@@ -664,12 +642,10 @@ struct MessageView: View {
                             Button("Copy Paragraph", role: .none) {
                                 let text = configuration.content.renderPlainText()
                                 copyToClipboard(text: text)
-                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                             }
                             Button("Copy Answer", role: .none) {
                                 let text = message.content
                                 copyToClipboard(text: text)
-                                alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                             }
                             Button("Speak", role: .none) {
                                 let text = message.content
@@ -734,7 +710,9 @@ struct MessageView: View {
             functionType == .search ||
             functionType == .getUserLocation ||
             functionType == .parseEquations ||
-            functionType == .getCalendar
+            functionType == .getCalendar ||
+            functionType == .createReminder ||
+            functionType == .createNewContact
         )
     }
     
@@ -767,6 +745,14 @@ struct MessageView: View {
             if functionType == .getCalendar {
                 EventsMessageView(message: message)
             }
+            
+            if functionType == .createReminder {
+                NewReminderMessageView(message: message)
+            }
+            
+            if functionType == .createNewContact {
+                NewContactMessageView(message: message)
+            }
         }
         if message.record.messageType == .select {
             ChoiceMessageView(message: message)
@@ -774,6 +760,7 @@ struct MessageView: View {
         if message.record.messageType == .data {
             DataMessageView(attachments: $message.attachments, message: message)
                 .padding(.horizontal)
+                .padding(.bottom, message.record.role == .user ? 0 : 20)
         }
         if message.record.role == .user && message.record.messageType == .text {
             UserMessageView(messageId: message.record.id, transcript: $message.content, answering: $answering, isFocused: _isFocused)
@@ -1069,147 +1056,7 @@ struct SearchingMessageView: View {
     }
 }
 
-struct EventsMessageView: View {
-    var message: Message
-    
-    @State var events: SortedEvents = SortedEvents(remindersWithoutDueDates: [], groupedByYearMonth: [])
-    
-    @State private var eventId: String?
-    @State private var showingEventEditView = false
-    @State var showMissingEventAlert = false
-    
-    func getEvents() async {
-        
-        let decoder = JSONDecoder()
-        
-        let json = try? decoder.decode(GetCalendarArgs.self, from: message.content.data(using: .utf8)!)
-        
-        async let events = Events.shared.getEvents(startDate: json?.startDate, endDate: json?.endDate)
-        async let reminders = Events.shared.getReminders()
-        
-        let grouped = groupAndSortEventsAndReminders(events: await events, reminders: await reminders)
-        
-        DispatchQueue.main.async {
-            self.events = grouped
-        }
-    }
-    
-    func getInterval(start: Date, end: Date) -> String {
-        return start.timeIntervalSince(end).toString {
-            $0.maximumUnitCount = 4
-            $0.allowedUnits = [.hour, .minute]
-            $0.collapsesLargestUnit = true
-            $0.unitsStyle = .short
-        }
-    }
-    
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 20) {
-            ForEach(events.remindersWithoutDueDates, id: \.self) { reminder in
-                HStack {
-                    Text(reminder.title)
-                    Spacer()
-                    Text("4pm")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            ForEach(events.groupedByYearMonth, id: \.self) { monthEvents in
-                HStack {
-                    Rectangle().fill(.gray).frame(height: 1)
-                    Text("\(monthEvents.month) \(monthEvents.year)".toDate("M yyyy")?.toFormat("MMM yyyy") ?? "")
-                        .font(.caption)
-                    Rectangle().fill(.gray).frame(height: 1)
-                }
-                .frame(maxWidth: .infinity)
-                
-                ForEach(monthEvents.dailyEvents, id: \.self) { events in
-                    LazyVStack(alignment: .leading) {
-                        HStack(alignment: .top) {
-                            VStack {
-                                Text(events.date.toFormat("EEE"))
-                                Text(events.date.toFormat("d"))
-                            }
-                            .padding(.top, 4)
-                            .frame(width: 60)
-                            VStack(alignment: .leading) {
-                                ForEach(events.reminders, id: \.self) { reminder in
-                                    HStack {
-                                        Text(reminder.title)
-                                        Spacer()
-                                        Text("4pm")
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                                ForEach(Array(events.events.enumerated()), id: \.1) { (index, event) in
-                                    VStack(alignment: .leading) {
-                                        if !event.isAllDay, index > 0 {
-                                            HStack {
-                                                Rectangle().fill(.gray).frame(height: 1)
-                                                Text(getInterval(start: event.startDate, end: events.events[index - 1].endDate))
-                                                    .font(.caption)
-                                                Rectangle().fill(.gray).frame(height: 1)
-                                            }
-                                            .padding(.horizontal)
-                                            .frame(maxWidth: .infinity)
-                                        }
-                                        HStack {
-                                            VStack(alignment: .leading) {
-                                                Text(event.title)
-                                                    .foregroundColor(Color.black.opacity(0.7))
-                                                    .font(.headline)
-                                                    .fontWeight(.bold)
-                                                if let location = event.location {
-                                                    Text(location)
-                                                        .foregroundColor(Color.black.opacity(0.7))
-                                                }
-                                                if !event.isAllDay {
-                                                    Text("\(event.startDate.in(region: .current).toFormat("h:mma")) - \(event.endDate.in(region: .current).toFormat("h:mma"))")
-                                                        .foregroundColor(Color.black.opacity(0.7))
-                                                }
-                                            }
-                                            Spacer()
-                                        }
-                                        .padding()
-                                        .frame(maxWidth: .infinity)
-                                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: event.isAllDay ? "#fbe6d1" : "#e0f5d6", alpha: 1)))
-                                        .onTapGesture {
-                                            if let identifier = event.eventIdentifier {
-                                                eventId = identifier
-                                                showingEventEditView = true
-                                                
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        
-                    }
-                    
-                }
-            }
-            
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 20)
-        .sheet(isPresented: $showingEventEditView) {
-                    EventEditView(eventId: $eventId) {
 
-                    }
-                }
-        .onReceive(message.$answering) { answering in
-            
-            
-            if !answering {
-                print("loading events")
-                Task {
-                    await self.getEvents()
-                }
-            }
-        }
-    }
-}
 
 struct NewEventMessageView: View {
     
@@ -1511,7 +1358,6 @@ struct MarkdownCodeView: View {
     @Binding var selectedLanguage: String
     var configuration: CodeBlockConfiguration
     
-    @EnvironmentObject var alerts: AlertViewModel
     @EnvironmentObject var chat: ChatViewModel
     
     init(message: Message, configuration: CodeBlockConfiguration, isFocused: FocusState<Bool>, showCode: Binding<Bool>, selectedCode: Binding<String>, selectedLanguage: Binding<String>) {
@@ -1585,7 +1431,6 @@ struct MarkdownCodeView: View {
                 Button("Copy Code") {
                     let selectedCode = configuration.content
                     copyToClipboard(text: selectedCode)
-                    alerts.alertToast = AlertToast(displayMode: .hud, type: .systemImage("checkmark.circle.fill", .green), title: "Copied")
                 }
                 Button("Save") {
                     var selectedCode = configuration.content
@@ -1611,6 +1456,25 @@ struct DataMessageView: View {
     var message: Message
     
     @State var height: CGFloat? = nil
+    
+    func calculateHeight(proxy: GeometryProxy) {
+        if attachments.isEmpty {
+            height = -10
+            return
+        }
+
+        height = proxy.size.height
+        
+        let perRow = floor(proxy.size.width / (attachmentSideLength + 10))
+        
+        let rows = ceil(CGFloat(attachments.count) / perRow)
+
+        let idealHeight = (attachmentSideLength * attachmentHeightRatio) * rows + (10 * (rows - 1))
+        
+        if height == nil || height! < idealHeight {
+            height = idealHeight
+        }
+    }
 
     var body: some View {
         if !attachments.isEmpty {
@@ -1619,47 +1483,31 @@ struct DataMessageView: View {
                     WrappingHStack($attachments, id: \.self, alignment: .leading, lineSpacing: 10) { attachment in
                         AttachmentView(message: message, attachment: attachment)
                     }
-                    .onChange(of: attachments, { oldValue, newValue in
+                    .onChange(of: proxy.size, { oldValue, newValue in
                         if attachments.isEmpty {
                             height = -10
                             return
                         }
 
-                        height = proxy.size.height
                         
-                        let perRow = floor(proxy.size.width / (attachmentSideLength + 10))
-                        
-                        let rows = ceil(CGFloat(newValue.count) / perRow)
-                        
-                        let idealHeight = (attachmentSideLength * attachmentHeightRatio) * rows + (10 * (rows - 1))
-                        
-                        if height == nil || height! < idealHeight {
-                            height = idealHeight
-                        }
-                    })
-                    .onAppear {
-                        if attachments.isEmpty {
-                            height = -10
-                            return
-                        }
-
-                        height = proxy.size.height
                         
                         let perRow = floor(proxy.size.width / (attachmentSideLength + 10))
                         
                         let rows = ceil(CGFloat(attachments.count) / perRow)
 
                         let idealHeight = (attachmentSideLength * attachmentHeightRatio) * rows + (10 * (rows - 1))
-
                         
-                        if height == nil || height! < idealHeight {
-                            height = idealHeight
-                        }
-
+                        height = idealHeight
+                    })
+                    .onChange(of: attachments, { oldValue, newValue in
+                        calculateHeight(proxy: proxy)
+                    })
+                    .onAppear {
+                        calculateHeight(proxy: proxy)
                     }
                 }
             }
-            .frame(minHeight: height ?? attachmentSideLength * attachmentHeightRatio, maxHeight: .infinity)
+            .frame(minHeight: height ?? (attachmentSideLength * attachmentHeightRatio - 10), maxHeight: .infinity)
         }
     }
 }
@@ -1748,7 +1596,7 @@ struct AttachmentView: View {
                 .frame(width: sideLength, height: sideLength * attachmentHeightRatio)
                 
             
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 0) {
                 Spacer()
                 VStack(alignment: .leading, spacing: 0) {
                     Spacer()
@@ -1849,7 +1697,6 @@ struct AttachmentView: View {
                 innerBody
             }
             .buttonStyle(.plain)
-            .padding(.bottom)
             .onDrag {
                 guard let url = attachment.url, let provider = NSItemProvider(contentsOf: url) else {
                     return NSItemProvider()

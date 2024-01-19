@@ -41,7 +41,7 @@ struct SubscriptionView: View {
             ChildSizeReader(size: $wholeSize) {
                 GeometryReader { geometry in
                     let cardWidth = getCardWidth(width: geometry.size.width)
-                    let maxWidth = cardWidth * 4 + 10 * 3 + 30
+                    let maxWidth = cardWidth * 3 + 10 * 2 + 30
                     ScrollView {
                         ChildSizeReader(size: $scrollViewSize) {
                             VStack(spacing: 0) {
@@ -63,10 +63,10 @@ struct SubscriptionView: View {
                                 Text("Welcome to iAsk")
                                     .font(.largeTitle.weight(.light))
                                     .foregroundStyle(.primary)
-                                Text("Your personal AI assistant and research partner")
+                                Text("Your personal AI assistant and tutor")
+                                    .foregroundStyle(.secondary)
                                     .frame(width: 220)
                                     .multilineTextAlignment(.center)
-                                    .foregroundStyle(.secondary)
                                     .padding(.top)
                                     .padding(.bottom, 28)
                                 
@@ -83,7 +83,7 @@ struct SubscriptionView: View {
                                 .frame(maxWidth: maxWidth)
                                 
                                 HStack {
-                                    Text("Share, drag, or paste files and links into iAsk to get immediate help. It works with most text documents and web pages.")
+                                    Text("Share, drag, or paste files and links into iAsk to get immediate help. It works with most documents, photos, and web pages.")
                                     Spacer()
                                 }
                                 .padding(.top, 8)
@@ -94,17 +94,21 @@ struct SubscriptionView: View {
                                 ScrollView(.horizontal) {
                                     LazyHStack(alignment: .top, spacing: 20) {
                                         
-                                        AnalyzeExampleView()
-                                            .frame(width: cardWidth, alignment: .leading)
+
                                         
-                                        VisionExampleView()
+                                        ExplainExampleView()
                                             .frame(width: cardWidth, alignment: .leading)
                                         
                                         OrderExampleView()
                                             .frame(width: cardWidth, alignment: .leading)
                                         
-                                        ConvertExampleView()
+                                        VisionExampleView()
                                             .frame(width: cardWidth, alignment: .leading)
+//                                        
+//                                        
+//                                        
+//                                        ConvertExampleView()
+//                                            .frame(width: cardWidth, alignment: .leading)
                                     }
                                     .padding(.horizontal)
                                     .scrollTargetLayout()
@@ -122,7 +126,7 @@ struct SubscriptionView: View {
                                 .frame(maxWidth: maxWidth)
                                 
                                 HStack {
-                                    Text("iAsk can execute search queries to retrieve information its missing.")
+                                    Text("iAsk uses both documents you provide and its own search queries to retrieve information its missing.")
                                     Spacer()
                                 }
                                 .padding(.top, 8)
@@ -139,7 +143,7 @@ struct SubscriptionView: View {
                                         ResearchExampleView()
                                             .frame(width: cardWidth, alignment: .leading)
                                         
-                                        ExplainExampleView()
+                                        AnalyzeExampleView()
                                             .frame(width: cardWidth, alignment: .leading)
                                     }
                                     .padding(.horizontal)
@@ -148,10 +152,12 @@ struct SubscriptionView: View {
                                 .scrollTargetBehavior(.viewAligned)
                                 .frame(maxWidth: maxWidth)
                                 
-                                Text("Subscribe to get unlimited access.\nNon subscribers are limited to 5 questions per 30 days.")
-                                    .foregroundColor(.secondary)
+                                Text("Subscribe to get unlimited access on all your Apple devices.")
+                                    .multilineTextAlignment(.center)
                                     .padding(.top, 40)
-                                    .padding(.horizontal)
+                                    .frame(maxWidth: 280)
+                                
+                                
                                 
                                 Button(action: {
                                     Task {
@@ -183,7 +189,19 @@ struct SubscriptionView: View {
                                 .buttonStyle(.borderedProminent)
                                 .padding(.top, 40)
                                 
-
+                                Text("7 day free trial included.")
+                                    .multilineTextAlignment(.center)
+                                    .padding(.top, 40)
+                                    .frame(maxWidth: 260)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("iAsk's use of Text and Vision models is completely private and secure. We are SOC 2/3/Europe compliant and all data is fully encrypted at rest (AES-256) and in transit (TLS-1.2). Your conversations and documents cannot be used for training.")
+                                    .multilineTextAlignment(.center)
+                                    .padding(.top, 40)
+                                    .frame(maxWidth: 500)
+                                    .padding(.horizontal, 40)
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
                                 
                                 Button(action: {
                                     Task {
@@ -240,21 +258,26 @@ struct SubscriptionView: View {
                 }
                 .ignoresSafeArea()
             }
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        chat.introShown = true
-                        showIntroNotification.send(false)
-                    }, label: {
-                        Text("Skip")
-                            .padding(.vertical, 20)
-                            .padding(.horizontal, 32)
-                    })
-                    
-                }
-                Spacer()
-            }
+//            VStack {
+//                HStack {
+//                    Spacer()
+//                    Button(action: {
+//                        chat.introShown = true
+//                        showIntroNotification.send(false)
+//                    }, label: {
+//                        Text("Skip")
+//                            .font(.caption)
+//                            .padding(.vertical, 6)
+//                            .padding(.horizontal, 10)
+//                            .background(Capsule().fill(colorScheme == .dark ? .black : .white))
+//                            .padding(.vertical, 20)
+//                            .padding(.horizontal, 32)
+//                    })
+//                    
+//                    
+//                }
+//                Spacer()
+//            }
             VStack {
                 Spacer()
                 HStack {
@@ -316,7 +339,7 @@ struct ChatExampleView<Content: View>: View {
         self.userMessage = userMessage
     }
     
-    var sideLength: CGFloat = 140
+    var sideLength: CGFloat = 150
     
     @ViewBuilder func getDocumentView(documents: [Document]) -> some View {
         if !documents.isEmpty {
@@ -326,7 +349,7 @@ struct ChatExampleView<Content: View>: View {
                         Image(doc.imageName)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: sideLength, height: sideLength * 1.2)
+                            .frame(width: sideLength, height: sideLength * 1.1)
                         
                         VStack(alignment: .leading) {
                             Spacer()
@@ -334,7 +357,6 @@ struct ChatExampleView<Content: View>: View {
                                 Spacer()
                                 HStack {
                                     Text(doc.name)
-                                        .font(.caption)
                                         .fontWeight(.bold)
                                         .padding(.bottom, 4)
                                         .foregroundStyle(.white)
@@ -351,7 +373,7 @@ struct ChatExampleView<Content: View>: View {
                                 LinearGradient(gradient: Gradient(colors: [Color(hex: "#000000", alpha: 0), Color(hex: "#000000", alpha: 0.7)]), startPoint: .top, endPoint: .bottom)
                             )
                         }
-                        .frame(width: sideLength, height: sideLength * 1.2)
+                        .frame(width: sideLength, height: sideLength * 1.1)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
@@ -578,7 +600,7 @@ struct CodeExampleView: View {
     
     var body: some View {
         ChatExampleView(documents: [
-            .init(name: "/example.html", imageName: "WebCode"),
+            .init(name: "example.com", imageName: "WebCode"),
             .init(name: "App.tsx", imageName: "Code")
         ], userMessage: "How do I integrate this code with my code?") {
             messageView
@@ -639,7 +661,7 @@ struct ExplainExampleView: View {
     var body: some View {
         ChatExampleView(documents: [
             .init(name: "Lease Agreement.pdf", imageName: "Lease")
-        ], userMessage: "Who pays what?") {
+        ], userMessage: "Explain this to me") {
             messageView
         }
     }

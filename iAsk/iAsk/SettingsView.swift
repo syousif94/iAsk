@@ -156,13 +156,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                         
                     }
-                    if purchasedProduct == nil {
-                        Text("You've made \(questionCount) requests this month! Please subscribe, just $4.99/mo")
-                            .foregroundStyle(.red)
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .padding(.top, 8)
-                    }
+//                    if purchasedProduct == nil {
+//                        HStack {
+//                            Text("You have \(max(5 - chat.settings.gpt4Questions, 0)) requests remaining this month. Subscribe for unlimited!")
+//                                .font(.caption)
+//                                .padding(.top, 4)
+//                        }
+//                        
+//                    }
                 }
                 
                 if purchasedProduct == nil {
@@ -172,7 +173,7 @@ struct SettingsView: View {
                         }
                     }
                     
-                    Button("Restore purchase") {
+                    Button("Restore subscription") {
                         Task {
                             await chat.store.updateCustomerProductStatus()
                         }

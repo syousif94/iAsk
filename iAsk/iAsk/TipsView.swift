@@ -44,20 +44,21 @@ struct TipsView: View {
     }
     
     let tips: [Tip] = Application.isCatalyst ? [
-        Tip(texts: Text("Press ") + Text("⌘ + enter").foregroundStyle(.green) + Text(" to submit a question")),
-        Tip(texts: Text("Press ") + Text("⌘ + n").foregroundStyle(.orange) + Text(" to start new chats")),
-        Tip(texts: Text("Press ") + Text("⌘ + o").foregroundStyle(.blue) + Text(" or drop files anywhere in this window to add them")),
-        Tip(texts: Text("Click  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  for settings and more")),
+        Tip(texts: Text("Type ") + Text("cmd + enter").foregroundStyle(.pink) + Text(" to submit your questions")),
+        Tip(texts: Text("Type ") + Text("cmd + n").foregroundStyle(.orange) + Text(" to start a new chat")),
+        Tip(texts: Text("Drop  ") + Text(Image(systemName: "doc.fill")).foregroundStyle(.blue) + Text("  anywhere in this window")),
+        Tip(texts: Text("Click  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  for more imports and exports")),
         Tip(texts: Text("Scroll  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
-        Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app"))
-        
+        Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app")),
+        Tip(texts: Text("Click  ") + Text(Image(systemName: "speaker.wave.2.fill")).foregroundStyle(.blue) + Text("  to speak or mute answers")),
     ] : [
-        Tip(texts: Text("Tap  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  to import documents and start new chats")),
+        Tip(texts: Text("Tap  ") + Text(Image(systemName: "plus")).foregroundStyle(.blue) + Text("  for new chats, imports, and exports")),
         Tip(texts: Text("Share anything with iAsk using  ") + Text(Image(systemName: "square.and.arrow.up")).foregroundStyle(.pink) + Text("  in any other app")),
         Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.right.2")).foregroundStyle(.blue) + Text("  for your question history")),
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "mic.fill")).foregroundStyle(.blue) + Text("  to speak your question")),
         Tip(texts: Text("Tap  ") + Text(Image(systemName: "play.fill")).foregroundStyle(.green) + Text("  to submit your request")),
-        Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.left.2")).foregroundStyle(.blue) + Text("  to scan text with the  ") + Text(Image(systemName: "camera.fill")).foregroundStyle(.blue))
+        Tip(texts: Text("Swipe  ") + Text(Image(systemName: "chevron.left.2")).foregroundStyle(.blue) + Text("  to scan text with the  ") + Text(Image(systemName: "camera.fill")).foregroundStyle(.blue)),
+        Tip(texts: Text("Tap  ") + Text(Image(systemName: "speaker.wave.2.fill")).foregroundStyle(.blue) + Text("  to speak or mute answers")),
     ]
     
     var body: some View {
@@ -172,19 +173,13 @@ struct QuotaView: View {
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.leading)
-                        .padding(.horizontal)
-                    HStack() {
-                        Text("$4.99/mo").foregroundStyle(.white).fontWeight(.bold)
-                    }
-                    .frame(height: 38)
-                    .padding(.horizontal)
-                    .background(RoundedRectangle(cornerRadius: 19).fill(Color.black.opacity(0.1)))
                 }
                 
             }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
             .buttonStyle(.plain)
-            .padding()
-            .background(RoundedRectangle(cornerRadius: 12).fill(bgColor))
+            .background(RoundedRectangle(cornerRadius: 10).fill(bgColor))
             Spacer()
         }
     }

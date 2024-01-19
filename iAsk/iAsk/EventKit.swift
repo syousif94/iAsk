@@ -114,7 +114,7 @@ class Events {
         
     }
     
-    func createReminder(title: String, notes: String, date: Date) -> EKReminder {
+    func createReminder(title: String, notes: String?, date: Date) -> EKReminder {
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
         reminder.notes = notes
@@ -123,6 +123,14 @@ class Events {
         reminder.addAlarm(alarm)
         
         return reminder
+    }
+    
+    func updateReminder(reminder: EKReminder) async {
+        do {
+            try eventStore.save(reminder, commit: true)
+        } catch let error {
+            print("Error saving reminder: \(error)")
+        }
     }
     
     func getEvent(withIdentifier identifier: String) async -> EKEvent? {
@@ -234,7 +242,7 @@ struct DailyEvents: Hashable {
 
 func groupAndSortEventsAndReminders(events: [EKEvent], reminders: [EKReminder]) -> SortedEvents {
     // Filter reminders without due dates
-    let remindersWithoutDueDates = reminders.filter { $0.dueDateComponents == nil }
+    let remindersWithoutDueDates = reminders.filter { $0.alarms?.isEmpty ?? true }
     
     let calendar = Calendar.current
     
@@ -244,8 +252,8 @@ func groupAndSortEventsAndReminders(events: [EKEvent], reminders: [EKReminder]) 
     }
     
     // Group reminders by year, month, and day
-    let groupedRemindersWithDueDates = Dictionary(grouping: reminders.filter { $0.dueDateComponents != nil }) { (reminder) -> DateComponents in
-        return reminder.dueDateComponents!
+    let groupedRemindersWithDueDates = Dictionary(grouping: reminders.filter { !($0.alarms?.isEmpty ?? true) }) { (reminder) -> DateComponents in
+        return calendar.dateComponents([.year, .month, .day], from: reminder.alarms!.first!.absoluteDate!)
     }
     
     // Combine event and reminder groups into DailyEvents, grouped by year and month

@@ -7,7 +7,9 @@
 
 import SwiftyContacts
 import FuzzyFind
-
+import UIKit
+import ContactsUI
+import SwiftUI
 
 
 class SearchableContact: Searchable {
@@ -32,7 +34,7 @@ enum ContactType: String, Codable {
     case address = "address"
 }
 
-typealias SortedSearchable<T: Searchable> = (T, [Alignment])
+typealias SortedSearchable<T: Searchable> = (T, [FuzzyFind.Alignment])
 
 class ContactManager {
     
@@ -64,6 +66,66 @@ class ContactManager {
         
 
        return contacts
+    }
+    
+    func createContact(from args: CreateNewContactArgs) async -> CNContact? {
+    
+        guard let hasAccess = try? await checkAccess(),
+              hasAccess else {
+            return nil
+        }
+        
+        let contact = CNMutableContact()
+        
+        let splitName = args.name.split(separator: " ")
+        
+        if let first = splitName.first {
+            contact.givenName = String(first)
+            let last = splitName.dropFirst().joined(separator: " ")
+            if !last.isEmpty {
+                contact.familyName = last
+            }
+        }
+        else {
+            return nil
+        }
+        
+        if let email = args.email {
+            let email = CNLabeledValue(label: CNLabelHome, value: email as NSString)
+            contact.emailAddresses = [email]
+        }
+        
+        if let number = args.number {
+            let phone = CNLabeledValue(label: CNLabelPhoneNumberiPhone, value: CNPhoneNumber(stringValue: number))
+            contact.phoneNumbers = [phone]
+        }
+        
+        if let employer = args.employer {
+            contact.organizationName = employer
+        }
+
+        return contact
+    }
+    
+    func save(contact: CNContact) throws {
+        try addContact(contact)
+    }
+    
+    func loadContact(by identifier: String) async -> CNContact? {
+        guard let hasAccess = try? await checkAccess(), hasAccess else {
+            return nil
+        }
+        
+        let store = CNContactStore()
+        let keysToFetch = [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactNicknameKey, CNContactEmailAddressesKey, CNContactPhoneNumbersKey] as [CNKeyDescriptor]
+        
+        do {
+            let contact = try store.unifiedContact(withIdentifier: identifier, keysToFetch: keysToFetch)
+            return contact
+        } catch {
+            print("Error fetching contact with identifier: \(identifier)")
+            return nil
+        }
     }
     
     private func checkAccess() async throws -> Bool {
@@ -175,11 +237,11 @@ struct Search {
 }
 
 protocol Searchable {
-    func matches(query: String) -> [Alignment]
+    func matches(query: String) -> [FuzzyFind.Alignment]
 }
 
 extension Searchable {
-    func matches(query: String) -> [Alignment] {
+    func matches(query: String) -> [FuzzyFind.Alignment] {
         let mirror = Mirror(reflecting: self)
         let searchableText = mirror.children.compactMap { child -> String? in
             guard let value = child.value as? Search else { return nil }
@@ -209,5 +271,48 @@ extension Array where Element: Searchable {
         }
         
         return matches
+    }
+}
+
+struct ContactEditView: UIViewControllerRepresentable {
+    var contactId: String
+    @Environment(\.presentationMode) var presentationMode
+    var onContactDeleted: (() -> Void)?
+
+    func makeUIViewController(context: Context) -> CNContactViewController {
+        if let contact = try? fetchContact(withIdentifier: contactId, keysToFetch: [CNContactViewController.descriptorForRequiredKeys()]) {
+            let contactViewController = CNContactViewController(for: contact)
+            contactViewController.delegate = context.coordinator
+            return contactViewController
+        }
+        else {
+            let contactViewController = CNContactViewController(forNewContact: nil)
+            contactViewController.delegate = context.coordinator
+            return contactViewController
+        }
+    }
+    
+    func updateUIViewController(_ uiViewController: CNContactViewController, context: Context) {
+        
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, CNContactViewControllerDelegate {
+        var parent: ContactEditView
+        
+        init(_ parent: ContactEditView) {
+            self.parent = parent
+        }
+        
+        func contactViewController(_ viewController: CNContactViewController, didCompleteWith contact: CNContact?) {
+            parent.presentationMode.wrappedValue.dismiss()
+            
+            if contact == nil {
+                parent.onContactDeleted?()
+            }
+        }
     }
 }

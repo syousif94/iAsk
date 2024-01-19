@@ -78,10 +78,15 @@
 
           ],
           "displayPrice" : "4.99",
-          "familyShareable" : true,
+          "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "C423D535",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "displayPrice" : "0.99",
+            "internalID" : "2B3E0ED5",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
           "localizations" : [
             {
               "description" : "",

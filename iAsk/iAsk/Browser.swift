@@ -311,6 +311,7 @@ class Browser: UIViewController {
             Task { @MainActor in
                 self.completionHandler = { html in
                     continuation.resume(returning: html)
+                    self.completionHandler = nil
                 }
                 if alreadyOnPage {
                     self.extractHTMLContent()
@@ -643,6 +644,8 @@ actor ScreenshotManager {
     }
 }
 
+import SwiftHTMLtoMarkdown
+
 func extractText(html: String) -> String? {
     do {
         var html = html
@@ -663,6 +666,18 @@ func extractText(html: String) -> String? {
         
         let whitelist = try Whitelist.basic()
         let safe = try SwiftSoup.clean(html, whitelist)
+        
+        if let safe = safe {
+            
+            var basic = BasicHTML(rawHTML: safe)
+            
+            try basic.parse()
+            
+            let markdown = try basic.asMarkdown()
+
+            return markdown
+        }
+        
         return safe
     } catch Exception.Error(_, let message) {
         print(message)

@@ -12,7 +12,6 @@ import Combine
 import SwiftDate
 import OrderedCollections
 import MarkdownUI
-import Splash
 
 struct HistoryView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -194,6 +193,10 @@ struct HistoryListItem: View {
                             EventsMessageView(message: message)
                         case .createCalendarEvent:
                             NewEventMessageView(message: message, answering: message.answering)
+                        case .createReminder:
+                            NewReminderMessageView(message: message)
+                        case .createNewContact:
+                            NewContactMessageView(message: message)
                         default:
                             EmptyView()
                         }

@@ -41,17 +41,19 @@ class FunctionHandler {
 
 enum FunctionCall: String, Codable {
     case getUserLocation = "get_user_location"
+    case createNewContact = "create_new_contact"
     case searchContacts = "search_contacts"
     case search = "search"
     case convertMedia = "convert_media"
-    case python = "python"
-    case writeFiles = "write_files"
+//    case python = "python"
+//    case writeFiles = "write_files"
     case readFiles = "read_files"
     case sms = "sms"
-    case call = "call"
+//    case call = "call"
     case createCalendarEvent = "create_calendar_event"
     case getCalendar = "get_calendar"
-    case editCalendarEvent = "edit_calendar_event"
+    case createReminder = "create_reminder"
+//    case editCalendarEvent = "edit_calendar_event"
     case parseEquations = "math_ocr"
 }
 
@@ -99,6 +101,13 @@ struct CallArgs: Codable {
     let phoneNumber: String?
 }
 
+struct CreateNewContactArgs: Codable {
+    let name: String
+    let number: String?
+    let email: String?
+    let employer: String?
+}
+
 struct SearchContactsArgs: Codable {
     let name: String;
     let contactType: ContactType
@@ -133,6 +142,12 @@ struct CreateCalendarEventArgs: Codable {
     let url: String?
 }
 
+struct CreateReminderArgs: Codable {
+    let title: String
+    let dueDate: String
+    let notes: String?
+}
+
 func getFunctions() -> [ChatFunctionDeclaration] {
     let functions = [
       ChatFunctionDeclaration(
@@ -147,6 +162,21 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               required: ["query"]
             )
       ),
+      ChatFunctionDeclaration(
+          name: "create_new_contact",
+          description: "Create a new contact in the user's contact list.",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "name": .init(type: .string, description: "The name of the new contact"),
+                "number": .init(type: .string, description: "The phone number of the new contact"),
+                "email": .init(type: .string, description: "The email address of the new contact"),
+                "employer": .init(type: .string, description: "Where the contact works")
+              ],
+              required: ["name"]
+            )
+      ),
 //      ChatFunctionDeclaration(
 //          name: "python",
 //          description: "Run python code and get the output back",
@@ -159,33 +189,33 @@ func getFunctions() -> [ChatFunctionDeclaration] {
 //              required: ["script"]
 //            )
 //      ),
-      ChatFunctionDeclaration(
-          name: "call",
-          description: "Call a phone number on behalf of the user.",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "contact": .init(type: .string, description: "The name of the contact the user wishes to contact, ex. Brad"),
-                "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481")
-              ],
-              required: []
-            )
-      ),
-      ChatFunctionDeclaration(
-          name: "sms",
-          description: "Send an sms message to a contact on behalf of the user. Use this when the user asks you to contact someone or ask someone a question.",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "contact": .init(type: .string, description: "The name of the contact the user wishes to contact, ex. Brad"),
-                "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481"),
-                "message": .init(type: .string, description: "The message you have generated to send")
-              ],
-              required: []
-            )
-      ),
+//      ChatFunctionDeclaration(
+//          name: "call",
+//          description: "Call a phone number on behalf of the user.",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "contact": .init(type: .string, description: "The name of the contact the user wishes to contact, ex. Brad"),
+//                "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481")
+//              ],
+//              required: []
+//            )
+//      ),
+//      ChatFunctionDeclaration(
+//          name: "sms",
+//          description: "Send an sms message to a contact on behalf of the user. Use this when the user asks you to contact someone or ask someone a question.",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "contact": .init(type: .string, description: "The name of the contact the user wishes to contact, ex. Brad"),
+//                "phoneNumber": .init(type: .string, description: "The phone number to dial, e.g. 8323305481"),
+//                "message": .init(type: .string, description: "The message you have generated to send")
+//              ],
+//              required: []
+//            )
+//      ),
       ChatFunctionDeclaration(
           name: "search_contacts",
           description: "Get search results from the user's contacts",
@@ -242,6 +272,20 @@ func getFunctions() -> [ChatFunctionDeclaration] {
                 "allDay": .init(type: .boolean, description: "Does the event last all day?")
               ],
               required: ["title", "startDate", "endDate", "allDay"]
+            )
+      ),
+      ChatFunctionDeclaration(
+          name: "create_reminder",
+          description: "Create a new reminder in the user's reminders list.",
+          parameters:
+            JSONSchema(
+              type: .object,
+              properties: [
+                "title": .init(type: .string, description: "The title of the reminder"),
+                "dueDate": .init(type: .string, description: "The due date and time for the reminder in yyyy-MM-dd HH:mm format"),
+                "notes": .init(type: .string, description: "Additional notes for the reminder")
+              ],
+              required: ["title", "dueDate"]
             )
       ),
       ChatFunctionDeclaration(

@@ -181,6 +181,15 @@
       }
     },
     {
+      "identity" : "swifthtmltomarkdown",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ActuallyTaylor/SwiftHTMLToMarkdown",
+      "state" : {
+        "branch" : "main",
+        "revision" : "4e97a7900940d938e4e81a1a71cff34cf98da192"
+      }
+    },
+    {
       "identity" : "swiftmath",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mgriebling/SwiftMath.git",

@@ -78,6 +78,13 @@ class ChatViewModel: ObservableObject {
             if !speakAnswer {
                 speechQueue.cancelSpeech()
             }
+            else if let last = messages.last {
+                if last.record.role == .assistant,
+                   !last.answering,
+                   !last.record.isFunctionCall {
+                    sentenceSplitter.handleStreamChunk(last.content)
+                }
+            }
         }
     }
     
@@ -341,6 +348,8 @@ class ChatViewModel: ObservableObject {
      */
     func transcribe() {
         
+        self.speakAnswer = false
+        
         lastEdited = nil
         
         DispatchQueue(label: "Speech Recognizer Queue", qos: .background).async { [weak self] in
@@ -510,6 +519,8 @@ class ChatViewModel: ObservableObject {
             5. Collect all of the information you need before calling a function. If an argument is missing, ask a follow up quesiton before calling the function.
             6. DO NOT call convert_media on code. Convert it yourself.
             7. Always included addresses and links for places in the real world if they appear in documents the user has provided.
+            8. Do not get a users location if you do not need it. You need it for searches, you do not need it to create reminders or calendar events.
+            9. You must get either a phone number or email address in addition to a name before creating a contact.
             
             You should only call search_contacts when someone explicitly asks for contact information.
             If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
@@ -519,12 +530,6 @@ class ChatViewModel: ObservableObject {
             assistant (you): sms(contact: "mom", message: "Hi mom, I love you and miss you. Can you please download my new app?")
             
             Example #2:
-            user: send bri's address to kelly
-            assistant (you): search_contacts(name: "bri", contact_type: "address")
-            function: [{"name": "Bri", detail: "123 address st, costa mesa, ca" }]
-            assistant (you): sms(contact: "Kelly", message: "Here's Bri's address: 123 Address St, Costa Mesa, CA")
-            
-            Example #3:
             user: ask cat whats up
             assistant (you): sms(name: "cat", message: "whats up")
             
@@ -695,6 +700,8 @@ class ChatViewModel: ObservableObject {
         
         var answer = ""
         
+        var wasSpeaking = speakAnswer
+        
         do {
             
             for try await result in openAI.chatsStream(query: query) {
@@ -707,8 +714,10 @@ class ChatViewModel: ObservableObject {
                     answer += text
                     textPublisher.send(answer)
                     if speakAnswer {
-                        sentenceSplitter.handleStreamChunk(text)
+                        let textToSpeak = wasSpeaking ? text : answer
+                        sentenceSplitter.handleStreamChunk(textToSpeak)
                     }
+                    wasSpeaking = speakAnswer
                     
 //                    DispatchQueue.main.async { [answer] in
 //                        aiMessage.content = answer
@@ -971,9 +980,6 @@ class ChatViewModel: ObservableObject {
                             if choices.isEmpty {
                                 
                             }
-//                                else if choices.count == 1 {
-//
-//                                }
                             else {
                                 let choicesMessageRecord = MessageRecord(chatId: self.id, createdAt: Date(), content: "", role: .assistant, messageType: .select)
                                 let choiceMessage = Message(record: choicesMessageRecord)
@@ -989,53 +995,51 @@ class ChatViewModel: ObservableObject {
                             await aiMessage.save()
                         }
                     }
-//                        Task {
-//                            if let json = try? await Google.shared.searchContacts(query: args.name) {
-//                                print(json)
-//                            }
-//                        }
                 } catch {
                     print("Failed to decode JSON: \(error)")
                 }
-            case .python:
+            case .createNewContact:
                 do {
-                    let args = try call.toArgs(PythonArgs.self)
-                    DispatchQueue.main.async {
-                        aiMessage.content += """
+                    let args = try call.toArgs(CreateNewContactArgs.self)
+                    
+                    if let contact = await ContactManager.shared.createContact(from: args) {
+                        print("created contact")
                         
-                        ```python
-                        \(args.script)
-                        ```
+                        try ContactManager.shared.save(contact: contact)
                         
-                        """
+                        aiMessage.systemIdentifier = contact.identifier
                     }
+                    
+                    
+                } catch {
+                    print("Failed to decode JSON for new contact: \(error)")
                 }
-                catch {
-                    print("Failed to decode JSON: \(error)")
+                
+                aiMessage.answering = false
+                
+                endGenerating(userMessage: lastUserMessage)
+                
+                Task {
+                    await aiMessage.save()
                 }
-            case .writeFiles:
+
+            case .createReminder:
                 do {
-                    let args = try call.toArgs(WriteFilesArgs.self)
+                    let args = try call.toArgs(CreateReminderArgs.self)
+                    
+                    if let dueDate = Events.getDate(args.dueDate) {
+                        let reminder = Events.shared.createReminder(title: args.title, notes: args.notes, date: dueDate)
+                        await Events.shared.insertReminder(reminder: reminder)
+                    }
+                } catch {
+                    
                 }
-                catch {
-                    print("Failed to decode JSON: \(error)")
-                    self.endGenerating(userMessage: lastUserMessage)
-                }
-            case .sms:
-                do {
-                    let args = try call.toArgs(SMSArgs.self)
-                }
-                catch {
-                    print("Failed to decode JSON: \(error)")
-                    self.endGenerating(userMessage: lastUserMessage)
-                }
-            case .call:
-                do {
-                    let args = try call.toArgs(CallArgs.self)
-                }
-                catch {
-                    print("Failed to decode JSON: \(error)")
-                    self.endGenerating(userMessage: lastUserMessage)
+                aiMessage.answering = false
+                
+                endGenerating(userMessage: lastUserMessage)
+                
+                Task {
+                    await aiMessage.save()
                 }
             case .readFiles:
                 do {
@@ -1160,8 +1164,6 @@ class ChatViewModel: ObservableObject {
                     await aiMessage.save()
                 }
                 self.endGenerating(userMessage: lastUserMessage)
-            case .editCalendarEvent:
-                break
             case .parseEquations:
                 print("parsing equations")
                 
@@ -1270,8 +1272,9 @@ class ChatViewModel: ObservableObject {
                 }
                 
                 self.endGenerating(userMessage: lastUserMessage)
+            case .sms:
+                break
             }
-        
             
         }
         else {
@@ -1296,8 +1299,7 @@ class ChatViewModel: ObservableObject {
     func streamResponse() {
         self.resetSpeechToText()
         
-        if store.purchasedSubscriptions.first == nil,
-           settings.gpt4Questions >= 5 {
+        if store.purchasedSubscriptions.first == nil {
             showLimitExceededAlert = true
             return
         }

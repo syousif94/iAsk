@@ -10,24 +10,24 @@
 		<dict>
 			<key>NSExtensionActivationRule</key>
 			<dict>
-				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
-				<integer>10</integer>
-				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
+				<key>NSExtensionActivationSupportsAttachmentsWithMaxCount</key>
 				<integer>10</integer>
 				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
 				<integer>10</integer>
+				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
+				<integer>10</integer>
 				<key>NSExtensionActivationSupportsMovieWithMaxCount</key>
-				<string>10</string>
+				<integer>10</integer>
 				<key>NSExtensionActivationSupportsText</key>
 				<true/>
-				<key>NSExtensionActivationSupportsAttachmentsWithMaxCount</key>
+				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
 				<integer>10</integer>
 			</dict>
 		</dict>
-		<key>NSExtensionPrincipalClass</key>
-		<string>ShareViewController</string>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>ShareViewController</string>
 	</dict>
 </dict>
 </plist>

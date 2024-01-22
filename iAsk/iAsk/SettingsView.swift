@@ -169,7 +169,7 @@ struct SettingsView: View {
                 if purchasedProduct == nil {
                     Button("Subscribe") {
                         Task {
-                            try? await chat.store.purchase(chat.store.subscriptions.first!)
+                            try? await chat.store.purchase(chat.store.monthlySubscription!)
                         }
                     }
                     

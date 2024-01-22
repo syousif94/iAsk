@@ -11,6 +11,7 @@ import SwiftUI
 import CryptoKit
 import NanoID
 import Combine
+import StoreKit
 
 extension UIColor {
     static var backgroundColor: UIColor {
@@ -455,5 +456,26 @@ class TextDetector {
         }
         
         return mutableText
+    }
+}
+
+extension UIApplication {
+    var foregroundActiveScene: UIWindowScene? {
+        connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
+    }
+}
+
+func incrementAppLaunchCount() {
+    if var launchCount = UserDefaults.standard.value(forKey: "launchCount") as? Int {
+        launchCount += 1
+        UserDefaults.standard.set(launchCount, forKey: "launchCount")
+        
+        if launchCount == 8 {
+            guard let scene = UIApplication.shared.foregroundActiveScene else { return }
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    } else {
+        UserDefaults.standard.set(1, forKey: "launchCount")
     }
 }

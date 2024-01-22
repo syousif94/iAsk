@@ -21,6 +21,22 @@ class StoreViewModel: ObservableObject {
     
     private let productIds: [String] = ["subscription.monthly"]
     
+    var monthlySubscription: Product? {
+        subscriptions.first { product in
+            product.id == productIds[0]
+        }
+    }
+    
+    var monthPurchased: Product? {
+        purchasedSubscriptions.first { product in
+            product.id == productIds[0]
+        }
+    }
+    
+    var hasPurchasedMonthly: Bool {
+        monthPurchased != nil
+    }
+    
     var updateListenerTask : Task<Void, Error>? = nil
 
     init() {
@@ -66,7 +82,7 @@ class StoreViewModel: ObservableObject {
         do {
             // request from the app store using the product ids (hardcoded)
             subscriptions = try await Product.products(for: productIds)
-            print(subscriptions)
+            print("subscriptions found", subscriptions)
         } catch {
             print("Failed product request from app store server: \(error)")
         }

@@ -165,7 +165,10 @@ struct QuotaView: View {
             Spacer()
             Button(action: {
                 Task {
-                    try? await chat.store.purchase(chat.store.subscriptions.first!)
+                    if let product = chat.store.monthlySubscription {
+                        let _ = try? await chat.store.purchase(product)
+                    }
+                    
                 }
             }) {
                 HStack {

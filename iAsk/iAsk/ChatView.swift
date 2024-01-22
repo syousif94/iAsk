@@ -581,13 +581,19 @@ struct InputMicButton: View {
 struct HighlightrCodeSyntaxHighlighter: CodeSyntaxHighlighter {
     private let syntaxHighlighter: Highlightr
     
+    private let supportedLangs: Set<String>
+    
     init(theme: String) {
         self.syntaxHighlighter = Highlightr()!
         self.syntaxHighlighter.setTheme(to: theme)
+        self.supportedLangs = Set(syntaxHighlighter.supportedLanguages())
     }
     
     func highlightCode(_ code: String, language: String?) -> Text {
-        if let lang = language, !lang.isEmpty, let highlightedCode = syntaxHighlighter.highlight(code, as: lang) {
+        if let lang = language,
+           !lang.isEmpty,
+           supportedLangs.contains(lang),
+           let highlightedCode = syntaxHighlighter.highlight(code, as: lang) {
             return Text(AttributedString(highlightedCode))
         }
         return Text(code)
@@ -625,8 +631,17 @@ struct MessageView: View {
             .markdownCodeSyntaxHighlighter(.highlightr(theme: colorScheme == .dark ? "monokai" : "xcode"))
             .markdownImageProvider(.local)
             .markdownInlineImageProvider(.local)
+            .markdownTableBackgroundStyle(.alternatingRows(Color.white.opacity(0.1), Color.black.opacity(0.05), header: Color.black.opacity(0.1)))
+            .markdownTableBorderStyle(.init(.allBorders, color: .clear, strokeStyle: .init(lineWidth: 0)))
+            .tableStyle(.inset)
             .markdownBlockStyle(\.table, body: { configuration in
-                configuration.label.padding(.top, 6)
+                configuration.label
+                    .clipShape(.rect(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    )
+                    .padding(.top, 6)
                     .contextMenu {
                         Button("Copy Table", role: .none) {
                             let text = configuration.content.renderMarkdown()
@@ -709,7 +724,7 @@ struct MessageView: View {
             functionType == .readFiles ||
             functionType == .search ||
             functionType == .getUserLocation ||
-            functionType == .parseEquations ||
+            functionType == .imageOCR ||
             functionType == .getCalendar ||
             functionType == .createReminder ||
             functionType == .createNewContact
@@ -738,8 +753,8 @@ struct MessageView: View {
                 LocatingMessageView(message: message)
             }
             
-            if functionType == .parseEquations {
-                MathOCRMessageView(message: message)
+            if functionType == .imageOCR {
+                OCRMessageView(message: message)
             }
             
             if functionType == .getCalendar {
@@ -946,15 +961,14 @@ struct LocatingMessageView: View {
     }
 }
 
-struct MathOCRMessageView: View {
+struct OCRMessageView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var message: Message
     
     @State var answering: Bool = true
     
-    var searchingText = "Reading Equations"
-    
+    var searchingText = "Reading"
     
     var body: some View {
         HStack {
@@ -975,14 +989,14 @@ struct MathOCRMessageView: View {
                     .bold()
                     .foregroundStyle(.white)
                     .padding()
-                Text("Read Equations")
+                Text("Reading Complete")
                     .foregroundStyle(.white)
                     .padding(.vertical)
                     .padding(.trailing)
                 
             }
         }
-        .background(.blue)
+        .background(.green)
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.bottom)

@@ -48,7 +48,7 @@ class ChatViewModel: ObservableObject {
     
     @AppStorage("introShown") var introShown = false
     
-    @AppStorage("proMode") var proMode = true
+    var proMode = true
     
     var model: Model {
         if proMode {
@@ -513,25 +513,13 @@ class ChatViewModel: ObservableObject {
             Please obey the following rules:
             
             1. Include links to github whenever mentioning software, and include links to websites whenever mentioning websites.
-            2. If you are asked to ask someone a question, respond by calling the sms function.
-            3. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
-            4. Be brief in your responses. It it ok to leave out warnings and extraneous information.
-            5. Collect all of the information you need before calling a function. If an argument is missing, ask a follow up quesiton before calling the function.
-            6. DO NOT call convert_media on code. Convert it yourself.
-            7. Always included addresses and links for places in the real world if they appear in documents the user has provided.
-            8. Do not get a users location if you do not need it. You need it for searches, you do not need it to create reminders or calendar events.
-            9. You must get either a phone number or email address in addition to a name before creating a contact.
-            
-            You should only call search_contacts when someone explicitly asks for contact information.
-            If someone asks you to send a message or email, do not call search_contacts, just use the contact's name in the respective sms/email function.
-            
-            Example #1:
-            user: text my mom that she needs to download my new app
-            assistant (you): sms(contact: "mom", message: "Hi mom, I love you and miss you. Can you please download my new app?")
-            
-            Example #2:
-            user: ask cat whats up
-            assistant (you): sms(name: "cat", message: "whats up")
+            2. Assume that users will refer to their friends and family (contacts) by nicknames that might be nouns, foriegn names, nonsense words, ex. cat, taco, bri, babe, mom, xi, hala
+            3. Collect all of the information you need before calling a function. If an argument is missing, ask a follow up quesiton before calling the function.
+            4. DO NOT call convert_media on code. Convert it yourself.
+            5. Always included addresses and links for places in the real world if they appear in documents the user has provided.
+            6. DO NOT call get_location if the question contains all the required locations. Do not call get_location before creating reminders or calendar events.
+            7. You must get either a phone number or email address in addition to a name before creating a contact.
+            8. YOU MUST CALL image_ocr on image files before answering math or science questions. Your default OCR cannot parse fractions, complex equations, or diagrams into text and cause you to give the wrong answer.
             
             You should call functions consecutively if you need current information. Do not make up information on current events without first calling the search function.
             
@@ -568,12 +556,6 @@ class ChatViewModel: ObservableObject {
             assistant (you): sms(contact: "mom", message: "Hi mom, I love you and miss you. Can you please download my new app?")
             
             Example #2:
-            user: send bri's address to kelly
-            assistant (you): search_contacts(name: "bri", contact_type: "address")
-            function: [{"name": "Bri", detail: "123 address st, costa mesa, ca" }]
-            assistant (you): sms(contact: "Kelly", message: "Here's Bri's address: 123 Address St, Costa Mesa, CA")
-            
-            Example #3:
             user: ask cat whats up
             assistant (you): sms(name: "cat", message: "whats up")
             
@@ -1164,14 +1146,14 @@ class ChatViewModel: ObservableObject {
                     await aiMessage.save()
                 }
                 self.endGenerating(userMessage: lastUserMessage)
-            case .parseEquations:
-                print("parsing equations")
+            case .imageOCR:
+                print("reading images")
                 
-                guard let args = try? call.toArgs(MathOCRArgs.self) else {
+                guard let args = try? call.toArgs(ImageOCRArgs.self) else {
                     return
                 }
                 let files = args.files
-                let images = files.compactMap { filePath -> UIImage? in
+                let images = files.compactMap { filePath -> (UIImage?, String)? in
                     
                     var filePath = filePath
                     
@@ -1205,7 +1187,13 @@ class ChatViewModel: ObservableObject {
                         return nil
                     }
                     
-                    return UIImage(contentsOfFile: attachment.localURL!.path)
+                    var text = """
+                    file_path: \(filePath)
+                    apple_ocr:
+                    \(attachment.readFile() ?? "")
+                    """
+                    
+                    return (UIImage(contentsOfFile: attachment.localURL!.path), text)
                 }
                 
                 if !images.isEmpty, let question = lastUserMessage?.content {
@@ -1238,8 +1226,22 @@ class ChatViewModel: ObservableObject {
                     
                     var answer = ""
                     
+                    var questionText = ""
+                    
+                    
+                    
+                    questionText += question
+                    
+                    questionText += "\nhere is the text from Apple's ocr software"
+                    
+                    for image in images {
+                        questionText += "\n\(image.1)"
+                    }
+                    
+                    questionText += "\nYou do not need to redact anything. Please include all names. Never regurgitate the text from the Apple OCR back as a field."
+                    
                     do {
-                        for try await result in await callImageChat(images: images, question: "\(question)\nRemember, LaTeX must start with `\\[` or `\\(`, not `[ `, `( `, or `$ `.") {
+                        for try await result in await callImageChat(images: images.map { $0.0! }, question: questionText) {
                             
                             if let text = result.choices[0].delta.content {
                                 if aiMessage.answering {
@@ -1257,8 +1259,6 @@ class ChatViewModel: ObservableObject {
                     catch {
                         
                     }
-                    
-                    print("math answer", answer)
                     
                     let latexReplaced = latexToMarkdown.convertLatexToMarkdown(in: answer)
                     let mutableText = detector.replaceAddresses(in: latexReplaced)
@@ -1299,7 +1299,7 @@ class ChatViewModel: ObservableObject {
     func streamResponse() {
         self.resetSpeechToText()
         
-        if store.purchasedSubscriptions.first == nil {
+        if !store.hasPurchasedMonthly {
             showLimitExceededAlert = true
             return
         }

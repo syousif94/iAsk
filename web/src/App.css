@@ -1,0 +1,62 @@
+#root {
+  width: 100vw;
+  height: 100dvh;
+}
+
+.overlay {
+  pointer-events: none;
+  display: flex;
+  z-index: 99;
+}
+
+.overlay__content {
+  pointer-events: auto;
+  padding: 40px 20px 20px;
+}
+
+.overlay__content li {
+  margin: 0 0 20px;
+}
+
+.main {
+  background: #fff;
+  width: 100%;
+  height: 70vh;
+  margin-bottom: -40%;
+}
+
+.overlay__content p {
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+@media (min-width: 500px) {
+  .overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .overlay__content {
+    max-width: 55vw;
+  }
+
+  .main {
+    height: 800px;
+    margin-bottom: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .overlay {
+    justify-content: flex-end;
+  }
+  .overlay__content {
+    justify-content: flex-end;
+    max-width: 40%;
+    margin-right: 10vw;
+    padding: 80px 0 40px;
+  }
+}

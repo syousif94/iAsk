@@ -54,7 +54,7 @@ enum FunctionCall: String, Codable {
     case getCalendar = "get_calendar"
     case createReminder = "create_reminder"
 //    case editCalendarEvent = "edit_calendar_event"
-    case parseEquations = "math_ocr"
+    case imageOCR = "image_ocr"
 }
 
 struct WriteFilesArgs: Codable {
@@ -72,7 +72,7 @@ struct ReadFilesArgs: Codable {
     let editsRequestedFor: [String]?
 }
 
-struct MathOCRArgs: Codable {
+struct ImageOCRArgs: Codable {
     let files: [String]
 }
 
@@ -229,21 +229,21 @@ func getFunctions() -> [ChatFunctionDeclaration] {
               required: ["name", "contactType"]
             )
       ),
-      ChatFunctionDeclaration(
-          name: "send_email",
-          description: "Send an email to a contact",
-          parameters:
-            JSONSchema(
-              type: .object,
-              properties: [
-                "contact": .init(type: .string, description: "The name of the contact, e.g. joe"),
-                "email": .init(type: .string, description: "The email address for the contact, e.g. john@doe.com"),
-                "subject": .init(type: .string, description: "The subject of the email"),
-                "body": .init(type: .string, description: "The body of the email")
-              ],
-              required: ["subject", "body"]
-            )
-      ),
+//      ChatFunctionDeclaration(
+//          name: "send_email",
+//          description: "Send an email to a contact",
+//          parameters:
+//            JSONSchema(
+//              type: .object,
+//              properties: [
+//                "contact": .init(type: .string, description: "The name of the contact, e.g. joe"),
+//                "email": .init(type: .string, description: "The email address for the contact, e.g. john@doe.com"),
+//                "subject": .init(type: .string, description: "The subject of the email"),
+//                "body": .init(type: .string, description: "The body of the email")
+//              ],
+//              required: ["subject", "body"]
+//            )
+//      ),
       ChatFunctionDeclaration(
           name: "get_calendar",
           description: "Get the user's calendar, including events and reminders",
@@ -321,8 +321,8 @@ func getFunctions() -> [ChatFunctionDeclaration] {
             )
       ),
       ChatFunctionDeclaration(
-          name: "math_ocr",
-          description: "You must use this to handle math equations in photos. Photos are file_paths that end in .heic, .jpeg, .jpg, or .png only. Do not use this for documents.",
+          name: "image_ocr",
+          description: "Use this to read equations and diagrams in photos. Photos are file_paths that end in .heic, .jpeg, .jpg, or .png only. Do not use this for documents.",
           parameters:
             JSONSchema(
               type: .object,

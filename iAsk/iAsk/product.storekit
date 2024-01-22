@@ -82,10 +82,9 @@
           "groupNumber" : 1,
           "internalID" : "C423D535",
           "introductoryOffer" : {
-            "displayPrice" : "0.99",
             "internalID" : "2B3E0ED5",
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
+            "subscriptionPeriod" : "P2W"
           },
           "localizations" : [
             {

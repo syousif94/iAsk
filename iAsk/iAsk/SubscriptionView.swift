@@ -164,7 +164,7 @@ struct SubscriptionView: View {
                                         do {
                                             let _ = try await chat.store.purchase(chat.store.subscriptions.first!)
                                             await chat.store.updateCustomerProductStatus()
-                                            if chat.store.purchasedSubscriptions.first != nil {
+                                            if chat.store.hasPurchasedMonthly {
                                                 chat.introShown = true
                                                 showIntroNotification.send(false)
                                             }
@@ -189,7 +189,7 @@ struct SubscriptionView: View {
                                 .buttonStyle(.borderedProminent)
                                 .padding(.top, 40)
                                 
-                                Text("7 day free trial included.")
+                                Text("14 day free trial included.")
                                     .multilineTextAlignment(.center)
                                     .padding(.top, 40)
                                     .frame(maxWidth: 260)
@@ -206,7 +206,7 @@ struct SubscriptionView: View {
                                 Button(action: {
                                     Task {
                                         await chat.store.updateCustomerProductStatus()
-                                        if chat.store.purchasedSubscriptions.first != nil {
+                                        if chat.store.hasPurchasedMonthly {
                                             chat.introShown = true
                                             showIntroNotification.send(false)
                                         }

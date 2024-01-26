@@ -585,15 +585,26 @@ struct HighlightrCodeSyntaxHighlighter: CodeSyntaxHighlighter {
     
     init(theme: String) {
         self.syntaxHighlighter = Highlightr()!
+        self.syntaxHighlighter.ignoreIllegals = true
         self.syntaxHighlighter.setTheme(to: theme)
-        self.supportedLangs = Set(syntaxHighlighter.supportedLanguages())
+        var langs = syntaxHighlighter.supportedLanguages()
+        print("supported syntax", langs)
+        self.supportedLangs = Set(langs)
     }
     
     func highlightCode(_ code: String, language: String?) -> Text {
-        if let lang = language,
+        var lang = language
+        if lang == "tsx" {
+            lang = "typescript"
+        }
+        if lang == "jsx" {
+            lang = "javascript"
+        }
+        if let lang = lang,
            !lang.isEmpty,
            supportedLangs.contains(lang),
            let highlightedCode = syntaxHighlighter.highlight(code, as: lang) {
+            print("successfully highlighted", lang)
             return Text(AttributedString(highlightedCode))
         }
         return Text(code)
@@ -989,14 +1000,14 @@ struct OCRMessageView: View {
                     .bold()
                     .foregroundStyle(.white)
                     .padding()
-                Text("Reading Complete")
+                Text("Read Images")
                     .foregroundStyle(.white)
                     .padding(.vertical)
                     .padding(.trailing)
                 
             }
         }
-        .background(.green)
+        .background(.blue)
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.bottom)

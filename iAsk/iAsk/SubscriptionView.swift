@@ -162,9 +162,15 @@ struct SubscriptionView: View {
                                 Button(action: {
                                     Task {
                                         do {
-                                            let _ = try await chat.store.purchase(chat.store.subscriptions.first!)
-                                            await chat.store.updateCustomerProductStatus()
-                                            if chat.store.hasPurchasedMonthly {
+                                            if let monthly = chat.store.monthlySubscription {
+                                                let _ = try await chat.store.purchase(monthly)
+                                                await chat.store.updateCustomerProductStatus()
+                                                if chat.store.hasPurchasedMonthly {
+                                                    chat.introShown = true
+                                                    showIntroNotification.send(false)
+                                                }
+                                            }
+                                            else if chat.store.subscriptionsLoaded {
                                                 chat.introShown = true
                                                 showIntroNotification.send(false)
                                             }

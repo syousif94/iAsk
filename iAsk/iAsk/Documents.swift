@@ -49,7 +49,7 @@ enum Disk {
         case .documents:
             directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         case .support:
-            directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .allDomainsMask).first
         }
         
         guard var dir = directory else {

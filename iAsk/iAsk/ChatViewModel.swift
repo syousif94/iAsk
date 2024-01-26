@@ -507,7 +507,7 @@ class ChatViewModel: ObservableObject {
         
         var chatMessages: [Chat] = proMode ? [
             .init(role: .system, content: """
-            You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), browse the web, and send text and email messages.
+            You have the ability to read all files (txt, html, office, etc.) and the text in images (png, jpeg, heic), and browse the web.
             Your goal is to accomplish user requests as quickly as possible using the functions available to you while still being fun and friendly in your responses.
             
             Please obey the following rules:
@@ -519,7 +519,9 @@ class ChatViewModel: ObservableObject {
             5. Always included addresses and links for places in the real world if they appear in documents the user has provided.
             6. DO NOT call get_location if the question contains all the required locations. Do not call get_location before creating reminders or calendar events.
             7. You must get either a phone number or email address in addition to a name before creating a contact.
-            8. YOU MUST CALL image_ocr on image files before answering math or science questions. Your default OCR cannot parse fractions, complex equations, or diagrams into text and cause you to give the wrong answer.
+            8. YOU MUST CALL image_ocr on image files before answering questions related to the content of images, like math or science questions. Your default OCR cannot parse fractions, complex equations, diagrams, or maps into text and cause you to give the wrong answer.
+            9. DO NOT CALL image_ocr when the user is asking to create contacts, reminders, or calendar event.
+            
             
             You should call functions consecutively if you need current information. Do not make up information on current events without first calling the search function.
             

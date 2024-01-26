@@ -81,7 +81,7 @@ class Message: ObservableObject, Equatable, Identifiable {
                 
                 text += "file_path: \(attachment.dataRecord.name)"
                 
-                if attachment.localURL?.dataType != .photo, let fileText = attachment.readFile() {
+                if let fileText = attachment.readFile() {
                     text += """
                     
                     file_content:

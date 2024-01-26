@@ -1,5 +1,7 @@
 ## iAsk
 
+<img height="450px" src="https://github.com/syousif94/iAsk/assets/8747517/ebb2e6cf-6dc6-4f33-bf26-6217d483735a">
+
 ### Running
 
 1. Open `iAsk/iAsk/iAsk.xcodeproj` in Xcode
